@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>結婚祝いWebサイト | あおやま Portfolio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../common/css/pc.css">
+  <link rel="stylesheet" href="../common/css/sp.css">
+  <link rel="stylesheet" href="../common/css/works.css">
+  <style>
+    #demo-area {
+      background: var(--paper-warm);
+      padding: 2rem 4rem;
+    }
+    #demo-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    #demo-label::before {
+      content: '';
+      display: block;
+      width: 1.5rem;
+      height: 1px;
+      background: var(--accent);
+    }
+    #demo-frame-wrap {
+      position: relative;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(26,24,20,0.1);
+    }
+    #demo-browser-bar {
+      background: #f0ede8;
+      padding: 0.6rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--line);
+    }
+    #demo-browser-bar span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    #demo-browser-bar span:nth-child(1) { background: #f08080; }
+    #demo-browser-bar span:nth-child(2) { background: #f0c060; }
+    #demo-browser-bar span:nth-child(3) { background: #80c080; }
+    #demo-url {
+      flex: 1;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      font-size: 0.72rem;
+      color: var(--ink-light);
+      padding: 0.25rem 0.75rem;
+      letter-spacing: 0.05em;
+    }
+    #demo-iframe {
+      width: 100%;
+      height: 600px;
+      display: block;
+      border: none;
+    }
+    @media (max-width: 768px) {
+      #demo-area { padding: 1.5rem; }
+      #demo-iframe { height: 480px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header role="banner">
+    <a href="../index.html" id="logo">あおやま</a>
+    <nav aria-label="サイト内ナビゲーション">
+      <ul>
+        <li><a href="../index.html#about">About</a></li>
+        <li><a href="../index.html#works">Works</a></li>
+        <li><a href="../index.html#skills">Skills</a></li>
+        <li><a href="../index.html#contact">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="work-detail">
+
+    <div id="work-hero" class="work-hero-wedding">
+      <div id="work-hero-inner">
+        <p class="eyebrow">Works — 01</p>
+        <h1>結婚祝いWebサイト</h1>
+        <ul class="tags">
+          <li class="accent">HTML</li>
+          <li class="accent">CSS</li>
+          <li>JavaScript</li>
+          <li>Supabase</li>
+          <li>Animation</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- デモ -->
+    <div id="demo-area">
+      <p id="demo-label">Live Demo</p>
+      <div id="demo-frame-wrap">
+        <div id="demo-browser-bar">
+          <span></span><span></span><span></span>
+          <p id="demo-url">wedding-demo.html</p>
+        </div>
+        <iframe
+          id="demo-iframe"
+          src="wedding.html"
+          title="結婚祝いWebサイト デモ"
+          loading="lazy"
+        ></iframe>
+      </div>
+    </div>
+
+    <div id="work-body">
+
+      <section aria-labelledby="overview-heading">
+        <h2 id="overview-heading">概要</h2>
+        <p>友人の結婚をお祝いするために個人で制作したお祝いメッセージサイトです。当日までサプライズとして準備し、式の前日に二人へ共有しました。招待客がスマホからメッセージを投稿・閲覧できる仕組みを実装し、会場でも使ってもらえる設計にしました。</p>
+      </section>
+
+      <div id="work-meta">
+        <div>
+          <p>制作期間</p>
+          <p>約2週間</p>
+        </div>
+        <div>
+          <p>制作形態</p>
+          <p>個人制作</p>
+        </div>
+        <div>
+          <p>公開状況</p>
+          <p>限定公開（招待制）</p>
+        </div>
+        <div>
+          <p>使用技術</p>
+          <p>HTML / CSS / JS / Supabase</p>
+        </div>
+      </div>
+
+      <section aria-labelledby="point-heading">
+        <h2 id="point-heading">工夫した点</h2>
+        <div id="work-points">
+          <div>
+            <p class="point-label">01</p>
+            <h3>Supabaseでリアルタイム投稿を実現</h3>
+            <p>メッセージの投稿・取得にSupabaseのデータベースを活用。ページをリロードしなくても新しいメッセージがリアルタイムで表示されるよう実装しました。</p>
+          </div>
+          <div>
+            <p class="point-label">02</p>
+            <h3>アニメーションで感動を演出</h3>
+            <p>CSS AnimationとJavaScriptを組み合わせ、花びらが舞うエフェクトや、メッセージカードがふわっと現れる演出を実装。「見た瞬間に泣いた」という声をもらえました。</p>
+          </div>
+          <div>
+            <p class="point-label">03</p>
+            <h3>スマホで操作しやすいUI設計</h3>
+            <p>式の当日にゲストがスマホから投稿することを想定し、入力フォームのタップ領域や文字サイズをHCDの観点から設計。操作で迷わせない導線を意識しました。</p>
+          </div>
+        </div>
+      </section>
+
+      <div id="work-nav">
+        <a href="../index.html#works" id="back-link">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Works一覧に戻る
+        </a>
+        <a href="work2.html" id="next-link">
+          次の作品へ
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer role="contentinfo">
+    <p id="footer-logo">あおやま</p>
+    <p><small>© 2026 あおやま. All rights reserved.</small></p>
+  </footer>
+
+</body>
+</html>
