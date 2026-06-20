@@ -1,0 +1,3509 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TCGカード在庫管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f3ee;
+  --surface: #ffffff;
+  --surface2: #f0efe8;
+  --border: #e2e1d9;
+  --text: #1a1a1a;
+  --text2: #777770;
+  --accent: #2563eb;
+  --accent-light: #dbeafe;
+  --green: #16a34a;
+  --green-light: #dcfce7;
+  --red: #dc2626;
+  --red-light: #fee2e2;
+  --orange: #ea580c;
+  --orange-light: #ffedd5;
+  --rare: #7c3aed;
+  --rare-light: #ede9fe;
+  --ace: #b45309;
+  --ace-light: #fef3c7;
+  --shadow: 0 1px 3px rgba(0,0,0,0.07);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: 72px;
+}
+
+/* ヘッダー */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px 10px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.header.hidden {
+  transform: translateY(-110%);
+  opacity: 0;
+  pointer-events: none;
+}
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.header h1 {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.header h1 span { color: var(--accent); }
+.header-right { display: flex; gap: 8px; align-items: center; }
+.admin-btn {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text2);
+  transition: all 0.15s;
+}
+.admin-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+.menu-btn {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.search-input {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--surface2);
+  outline: none;
+  margin-bottom: 8px;
+  transition: border-color 0.15s;
+}
+.search-input:focus { border-color: var(--accent); background: white; }
+.filter-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.filter-row::-webkit-scrollbar { display: none; }
+.chip {
+  white-space: nowrap;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: inherit;
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text2);
+}
+.chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* タブ */
+.tabs {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  flex: 1;
+  padding: 11px 6px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  transition: all 0.15s;
+  color: var(--text2);
+  font-family: inherit;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* サマリーバー */
+.summary-bar {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.summary-bar::-webkit-scrollbar { display: none; }
+.summary-item {
+  flex: 1;
+  padding: 8px 12px;
+  text-align: center;
+  border-right: 1px solid var(--border);
+  min-width: 80px;
+}
+.summary-item:last-child { border-right: none; }
+.s-label { font-size: 10px; color: var(--text2); font-weight: 500; }
+.s-value { font-size: 18px; font-weight: 900; font-family: 'DM Mono', monospace; color: var(--accent); line-height: 1.2; }
+
+/* カードリスト */
+.card-list { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.card-item {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 13px 14px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+.card-name-wrap { flex: 1; min-width: 0; }
+.card-name {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+.card-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+.badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-family: 'DM Mono', monospace;
+}
+.badge.rr { background: var(--rare-light); color: var(--rare); }
+.badge.r { background: var(--accent-light); color: var(--accent); }
+.badge.ace { background: var(--ace-light); color: var(--ace); }
+.badge.normal { background: var(--surface2); color: var(--text2); }
+
+.mercari-price { font-size: 13px; font-weight: 700; color: var(--red); font-family: 'DM Mono', monospace; white-space: nowrap; }
+.mercari-price.empty { color: var(--border); font-weight: 400; font-size: 11px; font-family: inherit; }
+
+.stock-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.stock-box { background: var(--surface2); border-radius: 10px; padding: 9px 10px; }
+.stock-box-label { font-size: 10px; color: var(--text2); font-weight: 700; margin-bottom: 6px; }
+.stock-control { display: flex; align-items: center; justify-content: space-between; }
+.sBtn {
+  width: 30px; height: 30px; border-radius: 50%; border: none;
+  font-size: 20px; font-weight: 300; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.1s; line-height: 1; padding: 0;
+}
+.sBtn:active { transform: scale(0.85); }
+.sBtn.minus { background: var(--red-light); color: var(--red); }
+.sBtn.plus { background: var(--green-light); color: var(--green); }
+.sNum { font-size: 24px; font-weight: 900; font-family: 'DM Mono', monospace; min-width: 36px; text-align: center; }
+.stock-total { text-align: center; font-size: 11px; color: var(--text2); padding: 3px 0 6px; }
+.stock-total strong { font-family: 'DM Mono', monospace; font-weight: 900; color: var(--text); }
+
+.expand-btn {
+  width: 100%; background: none; border: 1px dashed var(--border);
+  border-radius: 8px; padding: 6px; font-size: 11px; color: var(--text2);
+  cursor: pointer; font-family: inherit; font-weight: 500; transition: all 0.15s;
+}
+.expand-btn:active { background: var(--surface2); }
+.card-detail { margin-top: 8px; display: none; flex-direction: column; gap: 8px; }
+.card-detail.open { display: flex; }
+.detail-label { font-size: 11px; color: var(--text2); font-weight: 700; margin-bottom: 4px; }
+.detail-input {
+  width: 100%; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; font-family: inherit;
+  background: var(--surface2); outline: none; resize: none;
+}
+.detail-input:focus { border-color: var(--accent); background: white; }
+
+/* カドショフォーム */
+.shop-entry { background: var(--surface2); border-radius: 10px; padding: 10px; }
+.shop-fields { display: grid; grid-template-columns: 1fr 80px; gap: 6px; margin-bottom: 6px; }
+.save-shop-btn {
+  width: 100%; background: var(--green); color: white; border: none;
+  border-radius: 8px; padding: 8px; font-size: 12px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.save-shop-btn:active { opacity: 0.8; }
+.shop-history { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.shop-history-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; padding: 3px 0; border-bottom: 1px solid var(--border);
+}
+.shop-history-row:last-child { border-bottom: none; }
+.shop-name-text { color: var(--text2); }
+.shop-price-text { font-family: 'DM Mono', monospace; font-weight: 700; color: var(--green); }
+.shop-date-text { color: var(--text2); font-size: 10px; }
+
+/* 管理者フォーム */
+.add-form {
+  background: var(--surface); border-radius: 14px; padding: 14px;
+  margin: 10px 12px 0; border: 1px solid var(--border); box-shadow: var(--shadow); display: none;
+}
+.add-form.open { display: block; }
+.add-form h3 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 7px; }
+.form-row .full { grid-column: 1 / -1; }
+.form-input {
+  width: 100%; border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 10px; font-size: 13px; font-family: inherit; background: var(--surface2); outline: none;
+}
+.form-input:focus { border-color: var(--accent); background: white; }
+.form-select {
+  width: 100%; border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 10px; font-size: 13px; font-family: inherit;
+  background: var(--surface2); outline: none; appearance: none;
+}
+.add-btn {
+  width: 100%; background: var(--accent); color: white; border: none;
+  border-radius: 10px; padding: 11px; font-size: 13px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.add-btn:active { opacity: 0.8; }
+
+/* ===== デッキページ ===== */
+.deck-page { padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; }
+
+/* 取引中バナー */
+.active-sale-banner {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  border-radius: 16px;
+  padding: 16px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+.active-sale-banner::before {
+  content: '🔥';
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 40px;
+  opacity: 0.3;
+}
+.sale-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.2);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+.active-sale-banner h2 { font-size: 18px; font-weight: 900; margin-bottom: 4px; }
+.active-sale-banner p { font-size: 12px; opacity: 0.8; margin-bottom: 12px; }
+.sale-actions { display: flex; gap: 8px; }
+.sale-action-btn {
+  flex: 1; border: none; border-radius: 10px; padding: 9px;
+  font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
+  transition: opacity 0.15s;
+}
+.sale-action-btn:active { opacity: 0.8; }
+.sale-action-btn.complete { background: white; color: var(--red); }
+.sale-action-btn.cancel { background: rgba(255,255,255,0.2); color: white; }
+
+/* デッキカード */
+.deck-card {
+  background: var(--surface); border-radius: 14px; padding: 14px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+}
+.deck-card-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+}
+.deck-card-header h3 { font-size: 15px; font-weight: 700; }
+.deck-count { font-size: 11px; color: var(--text2); font-family: 'DM Mono', monospace; }
+
+/* 不足カード切替タブ */
+.shortage-tabs {
+  display: flex; background: var(--surface2); border-radius: 10px;
+  padding: 3px; margin-bottom: 10px; gap: 2px;
+}
+.shortage-tab {
+  flex: 1; padding: 6px 4px; text-align: center; font-size: 10px; font-weight: 700;
+  border-radius: 8px; cursor: pointer; font-family: inherit; background: none; border: none;
+  color: var(--text2); transition: all 0.15s;
+}
+.shortage-tab.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+
+.deck-rows { display: flex; flex-direction: column; }
+.deck-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid var(--surface2); font-size: 13px; gap: 8px;
+}
+.deck-row:last-child { border-bottom: none; }
+.deck-row-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deck-row-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.deck-qty-badge {
+  font-family: 'DM Mono', monospace; font-weight: 700; font-size: 11px;
+  background: var(--accent-light); color: var(--accent); padding: 2px 8px; border-radius: 20px;
+}
+.shortage-badge {
+  font-family: 'DM Mono', monospace; font-weight: 700; font-size: 11px;
+  padding: 2px 8px; border-radius: 20px;
+}
+.shortage-badge.ok { background: var(--green-light); color: var(--green); }
+.shortage-badge.ng { background: var(--red-light); color: var(--red); }
+.shortage-badge.warn { background: var(--orange-light); color: var(--orange); }
+
+/* デッキにカード追加フォーム */
+.deck-add-card {
+  background: var(--surface2); border-radius: 10px; padding: 10px; margin-top: 10px;
+}
+.deck-add-card h4 { font-size: 12px; font-weight: 700; margin-bottom: 8px; color: var(--text2); }
+.deck-search-wrap { position: relative; margin-bottom: 6px; }
+.deck-search-input {
+  width: 100%; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; font-family: inherit;
+  background: var(--surface); outline: none;
+}
+.deck-search-input:focus { border-color: var(--accent); }
+.deck-search-results {
+  position: absolute; top: 100%; left: 0; right: 0; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; z-index: 50;
+  max-height: 160px; overflow-y: auto; box-shadow: var(--shadow-md);
+  display: none;
+}
+.deck-search-results.open { display: block; }
+.deck-search-item {
+  padding: 9px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--surface2);
+  transition: background 0.1s;
+}
+.deck-search-item:last-child { border-bottom: none; }
+.deck-search-item:active { background: var(--accent-light); }
+.deck-add-row { display: flex; gap: 6px; }
+.deck-qty-input {
+  width: 70px; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; font-family: inherit;
+  background: var(--surface); outline: none; text-align: center;
+}
+.deck-add-btn {
+  flex: 1; background: var(--accent); color: white; border: none;
+  border-radius: 8px; padding: 8px; font-size: 12px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.deck-add-btn:active { opacity: 0.8; }
+.selected-card-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent-light); color: var(--accent); border-radius: 20px;
+  padding: 4px 10px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+}
+
+/* 出品ボタン */
+.list-btn {
+  width: 100%; background: var(--red); color: white; border: none;
+  border-radius: 10px; padding: 11px; font-size: 13px; font-weight: 700;
+  font-family: inherit; cursor: pointer; margin-top: 10px; display: flex;
+  align-items: center; justify-content: center; gap: 6px;
+}
+.list-btn:active { opacity: 0.8; }
+
+.add-deck-btn {
+  width: 100%; background: none; border: 1.5px dashed var(--border);
+  border-radius: 14px; padding: 14px; font-size: 13px; color: var(--text2);
+  cursor: pointer; font-family: inherit; font-weight: 700;
+}
+.add-deck-btn:active { background: var(--surface2); }
+
+/* デッキ内カード編集ボタン */
+.dc-btn {
+  width: 24px; height: 24px; border-radius: 50%; border: none;
+  font-size: 13px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: transform 0.1s; padding: 0; line-height: 1;
+}
+.dc-btn:active { transform: scale(0.85); }
+.dc-btn.minus { background: var(--red-light); color: var(--red); font-size: 16px; font-weight: 300; }
+.dc-btn.plus { background: var(--green-light); color: var(--green); font-size: 16px; font-weight: 300; }
+.dc-btn.trash { background: var(--surface2); font-size: 12px; }
+
+/* ===== カドショページ ===== */
+.shop-page { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.shop-card {
+  background: var(--surface); border-radius: 14px; padding: 14px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+}
+.shop-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+.shop-card-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--surface2); font-size: 12px; gap: 8px;
+}
+.shop-card-row:last-child { border-bottom: none; }
+.shop-card-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shop-card-price { font-family: 'DM Mono', monospace; font-weight: 700; color: var(--green); white-space: nowrap; }
+.shop-card-date { color: var(--text2); font-size: 10px; white-space: nowrap; }
+
+/* ===== メルカリページ ===== */
+.mercari-page { padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; }
+
+.mercari-header-card {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border-radius: 16px; padding: 16px; color: white;
+}
+.mercari-header-card h2 { font-size: 16px; font-weight: 900; margin-bottom: 4px; }
+.mercari-stats { display: flex; gap: 16px; margin-top: 10px; }
+.mercari-stat { display: flex; flex-direction: column; align-items: center; }
+.mercari-stat .ms-val { font-size: 22px; font-weight: 900; font-family: 'DM Mono', monospace; color: #f97316; }
+.mercari-stat .ms-label { font-size: 10px; opacity: 0.7; }
+
+/* 不足カードアラート */
+.shortage-alert {
+  background: var(--surface); border-radius: 14px; padding: 14px;
+  box-shadow: var(--shadow); border: 1.5px solid var(--red-light);
+}
+.shortage-alert-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.shortage-alert-header h3 { font-size: 14px; font-weight: 900; color: var(--red); }
+.shortage-count-badge {
+  background: var(--red); color: white; border-radius: 20px;
+  padding: 2px 8px; font-size: 11px; font-weight: 700;
+  font-family: 'DM Mono', monospace;
+}
+
+.shortage-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--surface2); gap: 8px;
+}
+.shortage-row:last-child { border-bottom: none; }
+.shortage-row-name { font-size: 13px; font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shortage-row-detail { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+.shortage-row-nums { font-size: 11px; color: var(--text2); font-family: 'DM Mono', monospace; }
+.shortage-row-diff {
+  font-size: 12px; font-weight: 900; font-family: 'DM Mono', monospace;
+  padding: 2px 8px; border-radius: 20px;
+}
+.shortage-row-diff.ng { background: var(--red-light); color: var(--red); }
+.shortage-row-diff.ok { background: var(--green-light); color: var(--green); }
+
+/* 取引中デッキカード */
+.mercari-deck-card {
+  background: var(--surface); border-radius: 14px; padding: 14px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+}
+.mercari-deck-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 8px; }
+.mercari-deck-name { font-size: 15px; font-weight: 900; }
+.mercari-deck-date { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.mercari-deck-price { font-size: 16px; font-weight: 900; font-family: 'DM Mono', monospace; color: var(--red); white-space: nowrap; }
+.mercari-deck-actions { display: flex; gap: 8px; }
+.mercari-action-btn {
+  flex: 1; border: none; border-radius: 10px; padding: 10px;
+  font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.mercari-action-btn:active { opacity: 0.8; }
+.mercari-action-btn.complete { background: var(--green); color: white; }
+.mercari-action-btn.cancel { background: var(--surface2); color: var(--text); }
+
+/* ===== 履歴ページ ===== */
+.history-page { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.history-card {
+  background: var(--surface); border-radius: 14px; padding: 14px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+}
+.history-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.history-card h3 { font-size: 14px; font-weight: 700; }
+.history-date { font-size: 11px; color: var(--text2); }
+.history-status {
+  display: inline-block; padding: 2px 8px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; margin-bottom: 6px;
+}
+.history-status.completed { background: var(--green-light); color: var(--green); }
+.history-price { font-size: 16px; font-weight: 900; font-family: 'DM Mono', monospace; color: var(--red); }
+
+/* ハンバーガーメニュー */
+.drawer-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.drawer-overlay.open { opacity: 1; pointer-events: all; }
+.drawer {
+  position: fixed; top: 0; right: -280px; bottom: 0; width: 280px;
+  background: var(--surface); z-index: 201; transition: right 0.25s;
+  padding: 60px 24px 24px; display: flex; flex-direction: column; gap: 4px;
+}
+.drawer.open { right: 0; }
+.drawer h2 { font-size: 16px; font-weight: 900; margin-bottom: 16px; color: var(--text2); }
+.drawer-item {
+  display: flex; align-items: center; gap: 12px; padding: 14px 12px;
+  border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 700;
+  transition: background 0.1s; border: none; background: none; font-family: inherit;
+  width: 100%; text-align: left; color: var(--text);
+}
+.drawer-item:active { background: var(--surface2); }
+.drawer-item .d-icon { font-size: 20px; }
+.drawer-close {
+  position: absolute; top: 16px; right: 16px; background: var(--surface2);
+  border: none; border-radius: 50%; width: 32px; height: 32px;
+  font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+
+/* モーダル */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300;
+  display: flex; align-items: flex-end; opacity: 0; pointer-events: none;
+  transition: opacity 0.25s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface); border-radius: 20px 20px 0 0; padding: 24px 20px;
+  width: 100%; transform: translateY(100%); transition: transform 0.25s;
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal h3 { font-size: 16px; font-weight: 900; margin-bottom: 6px; }
+.modal p { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+.modal-btns { display: flex; flex-direction: column; gap: 8px; }
+.modal-btn {
+  width: 100%; border: none; border-radius: 12px; padding: 14px;
+  font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.modal-btn.confirm { background: var(--red); color: white; }
+.modal-btn.cancel { background: var(--surface2); color: var(--text); }
+.modal-btn:active { opacity: 0.8; }
+.modal-input {
+  width: 100%; border: 1.5px solid var(--border); border-radius: 10px;
+  padding: 12px; font-size: 14px; font-family: inherit; background: var(--surface2);
+  outline: none; margin-bottom: 12px;
+}
+.modal-input:focus { border-color: var(--accent); background: white; }
+
+/* トースト */
+.toast {
+  position: fixed; bottom: 82px; left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: #1a1a1a; color: white; padding: 9px 18px;
+  border-radius: 20px; font-size: 12px; font-weight: 500;
+  opacity: 0; transition: all 0.25s; z-index: 999;
+  white-space: nowrap; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.search-input.hidden { display: none; }
+.filter-row.hidden { display: none; }
+
+/* 検索行 */
+.search-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.search-input {
+  flex: 1;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--surface2);
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 0;
+}
+.search-input:focus { border-color: var(--accent); background: white; }
+
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--text2);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.filter-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* 通知バナー */
+.notif-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white; padding: 14px 16px;
+  transform: translateY(-100%);
+  transition: transform 0.4s cubic-bezier(0.32,0.72,0,1);
+  box-shadow: 0 4px 20px rgba(220,38,38,0.4);
+}
+.notif-banner.show { transform: translateY(0); }
+.notif-banner-inner { display: flex; align-items: center; gap: 12px; }
+.notif-banner-icon { font-size: 28px; flex-shrink: 0; }
+.notif-banner-text { flex: 1; }
+.notif-banner-title { font-size: 14px; font-weight: 900; margin-bottom: 2px; }
+.notif-banner-sub { font-size: 11px; opacity: 0.85; }
+.notif-banner-close {
+  background: rgba(255,255,255,0.2); border: none; border-radius: 50%;
+  width: 28px; height: 28px; color: white; font-size: 14px; cursor: pointer;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+}
+
+/* フィルターシート（下からにゅっと出る） */
+.filter-sheet-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.filter-sheet-overlay.open { opacity: 1; pointer-events: all; }
+
+.filter-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  z-index: 201; padding: 20px 16px 40px;
+  transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+  max-height: 80vh; overflow-y: auto;
+}
+.filter-sheet.open { transform: translateY(0); }
+
+.filter-sheet-handle {
+  width: 36px; height: 4px; background: var(--border);
+  border-radius: 2px; margin: 0 auto 18px;
+}
+.filter-sheet h3 {
+  font-size: 14px; font-weight: 900; margin-bottom: 14px; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.filter-section { margin-bottom: 18px; }
+.filter-section-title {
+  font-size: 11px; font-weight: 700; color: var(--text2);
+  margin-bottom: 8px; letter-spacing: 0.5px;
+}
+.filter-chips {
+  display: flex; flex-wrap: wrap; gap: 7px;
+}
+.filter-chip-item {
+  border: 1.5px solid var(--border); border-radius: 20px;
+  padding: 7px 14px; font-size: 13px; font-weight: 700;
+  font-family: inherit; background: var(--surface2);
+  cursor: pointer; transition: all 0.15s; color: var(--text);
+}
+.filter-chip-item.active {
+  background: var(--accent); color: white; border-color: var(--accent);
+}
+.filter-chip-item.active-sort {
+  background: var(--surface); color: var(--accent); border-color: var(--accent);
+}
+.filter-reset-btn {
+  width: 100%; background: var(--surface2); border: none; border-radius: 12px;
+  padding: 13px; font-size: 13px; font-weight: 700; font-family: inherit;
+  cursor: pointer; color: var(--text2); margin-top: 4px;
+}
+.filter-reset-btn:active { opacity: 0.7; }
+
+.filter-row { display: none; } /* 旧フィルター行は非表示 */
+/* 在庫保存ボタン */
+.save-stock-btn {
+  width: 100%; background: var(--accent); color: white; border: none;
+  border-radius: 10px; padding: 13px; font-size: 14px; font-weight: 900;
+  font-family: inherit; cursor: pointer; margin-top: 6px;
+  transition: all 0.15s; letter-spacing: 0.3px;
+  box-shadow: 0 3px 10px rgba(37,99,235,0.3);
+}
+.save-stock-btn:active { transform: scale(0.97); opacity: 0.9; }
+
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-top: 1px solid var(--border);
+  display: flex; padding: 6px 0 8px; z-index: 100;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.bottom-nav.hidden {
+  transform: translateY(110%);
+  opacity: 0;
+  pointer-events: none;
+}
+.nav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 3px; background: none; border: none; cursor: pointer;
+  font-family: inherit; color: var(--text2); font-size: 10px; font-weight: 700;
+  transition: color 0.15s;
+}
+.nav-btn.active { color: var(--accent); }
+.nav-icon { font-size: 22px; line-height: 1; }
+
+.page { display: none; }
+.page.active { display: block; }
+.loading { text-align: center; padding: 50px 20px; color: var(--text2); font-size: 14px; }
+.dot { animation: blink 1.2s infinite; display: inline-block; }
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%,80%,100%{opacity:0} 40%{opacity:1} }
+.empty { text-align: center; padding: 50px 20px; color: var(--text2); }
+.empty .e-icon { font-size: 40px; margin-bottom: 10px; }
+.empty p { font-size: 13px; line-height: 1.6; }
+
+/* カテゴリセクション */
+.cat-section { margin-bottom: 4px; }
+.cat-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 12px 6px;
+  font-size: 13px; font-weight: 900; color: var(--text2);
+  letter-spacing: 0.5px;
+}
+.cat-icon { font-size: 16px; }
+.cat-count {
+  font-size: 10px; font-weight: 700; color: var(--text2);
+  background: var(--surface2); padding: 2px 7px; border-radius: 20px;
+  font-family: 'DM Mono', monospace; margin-left: 2px;
+}
+</style>
+</head>
+<body>
+
+<!-- 通知バナー -->
+<div class="notif-banner" id="notifBanner">
+  <div class="notif-banner-inner">
+    <div class="notif-banner-icon">🔥</div>
+    <div class="notif-banner-text">
+      <div class="notif-banner-title" id="notifTitle"></div>
+      <div class="notif-banner-sub" id="notifSub">管理タブで不足カードを確認してね！</div>
+    </div>
+    <button class="notif-banner-close" onclick="closeBanner()">✕</button>
+  </div>
+</div>
+
+<div class="header">
+  <div class="header-top">
+    <h1>🃏 TCGカード<span>在庫</span></h1>
+    <div class="header-right">
+      <button class="admin-btn" id="adminBtn" onclick="toggleAdmin()">管理者モード</button>
+      <button class="menu-btn" onclick="location.reload(true)" title="最新版に更新">🔄</button>
+      <button class="menu-btn" onclick="openDrawer()">☰</button>
+    </div>
+  </div>
+  <div class="search-row" id="searchRow">
+    <input class="search-input" type="text" placeholder="カード名で検索..." id="searchInput" oninput="renderInventory()">
+    <button class="filter-btn" id="filterBtn" onclick="openFilterSheet()">▼ 絞込</button>
+  </div>
+  <div class="filter-row" id="filterRow"></div>
+</div>
+
+<!-- フィルターシート -->
+<div class="filter-sheet-overlay" id="filterSheetOverlay" onclick="closeFilterSheet()"></div>
+<div class="filter-sheet" id="filterSheet">
+  <div class="filter-sheet-handle"></div>
+
+  <div class="filter-section">
+    <div class="filter-section-title">カテゴリ</div>
+    <div class="filter-chips">
+      <button class="filter-chip-item active" data-cat="" onclick="sheetSetCat('',this)">すべて</button>
+      <button class="filter-chip-item" data-cat="ポケモン" onclick="sheetSetCat('ポケモン',this)">🐾 ポケモン</button>
+      <button class="filter-chip-item" data-cat="グッズ" onclick="sheetSetCat('グッズ',this)">🎒 グッズ</button>
+      <button class="filter-chip-item" data-cat="ポケモンの道具" onclick="sheetSetCat('ポケモンの道具',this)">🔧 道具</button>
+      <button class="filter-chip-item" data-cat="サポート" onclick="sheetSetCat('サポート',this)">👤 サポート</button>
+      <button class="filter-chip-item" data-cat="スタジアム" onclick="sheetSetCat('スタジアム',this)">🏟 スタジアム</button>
+      <button class="filter-chip-item" data-cat="エネルギー" onclick="sheetSetCat('エネルギー',this)">⚡ エネルギー</button>
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-section-title">レアリティ</div>
+    <div class="filter-chips">
+      <button class="filter-chip-item active" data-rarity="" onclick="sheetSetRarity('',this)">すべて</button>
+      <button class="filter-chip-item" data-rarity="RR" onclick="sheetSetRarity('RR',this)">RR</button>
+      <button class="filter-chip-item" data-rarity="R" onclick="sheetSetRarity('R',this)">R</button>
+      <button class="filter-chip-item" data-rarity="ACE" onclick="sheetSetRarity('ACE',this)">ACE</button>
+      <button class="filter-chip-item" data-rarity="-" onclick="sheetSetRarity('-',this)">ノーマル</button>
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-section-title">在庫</div>
+    <div class="filter-chips">
+      <button class="filter-chip-item active" data-filter="all" onclick="sheetSetFilter('all',this)">すべて</button>
+      <button class="filter-chip-item" data-filter="stock" onclick="sheetSetFilter('stock',this)">在庫あり</button>
+      <button class="filter-chip-item" data-filter="nostock" onclick="sheetSetFilter('nostock',this)">在庫なし</button>
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-section-title">並び替え</div>
+    <div class="filter-chips">
+      <button class="filter-chip-item active-sort" data-sort="" onclick="sheetSetSort('',this)">デフォルト</button>
+      <button class="filter-chip-item" data-sort="price" onclick="sheetSetSort('price',this)">高値順</button>
+      <button class="filter-chip-item" data-sort="name" onclick="sheetSetSort('name',this)">名前順</button>
+    </div>
+  </div>
+
+  <button class="filter-reset-btn" onclick="resetFilters()">🔄 リセット</button>
+</div>
+
+<!-- 在庫ページ -->
+<div class="page active" id="page-inventory">
+  <div class="summary-bar" id="summaryBar"></div>
+  <div id="addForm" class="add-form">
+    <h3>＋ カードを追加</h3>
+    <div class="form-row">
+      <input class="form-input full" type="text" id="newName" placeholder="カード名（正式名称）">
+    </div>
+    <div class="form-row">
+      <select class="form-select" id="newRarity">
+        <option value="">レアリティ</option>
+        <option value="RR">RR</option>
+        <option value="R">R</option>
+        <option value="ACE">ACE</option>
+        <option value="-">-</option>
+      </select>
+      <select class="form-select" id="newCategory">
+        <option value="グッズ">🎒 グッズ</option>
+        <option value="ポケモン">🐾 ポケモン</option>
+        <option value="ポケモンの道具">🔧 ポケモンの道具</option>
+        <option value="サポート">👤 サポート</option>
+        <option value="スタジアム">🏟 スタジアム</option>
+        <option value="エネルギー">⚡ エネルギー</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <input class="form-input full" type="number" id="newMercari" placeholder="メルカリ値（円）">
+    </div>
+    <button class="add-btn" onclick="addCard()">追加する</button>
+  </div>
+  <div class="card-list" id="cardList">
+    <div class="loading">読み込み中<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
+  </div>
+</div>
+
+<!-- デッキページ -->
+<div class="page" id="page-deck">
+  <div class="deck-page" id="deckPage">
+    <div class="loading">読み込み中<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
+  </div>
+</div>
+
+<!-- メルカリページ -->
+<div class="page" id="page-mercari">
+  <div class="mercari-page" id="mercariPage">
+    <div class="loading">読み込み中<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
+  </div>
+</div>
+
+<!-- カドショページ -->
+<div class="page" id="page-shop">
+  <div id="shopPageInner" style="padding:12px;">
+
+    <!-- トップ：2択ボタン -->
+    <div id="shopTop">
+      <div style="text-align:center;padding:24px 0 20px;">
+        <div style="font-size:36px;margin-bottom:10px;">🏪</div>
+        <div style="font-size:19px;font-weight:900;margin-bottom:4px;">カドショ</div>
+        <div style="font-size:13px;color:var(--text2);">記録・一覧を選んでください</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button onclick="showShopRecord()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:16px;padding:20px;font-size:16px;font-weight:900;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:12px;box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+          <span style="font-size:28px;">📝</span>
+          <div style="text-align:left;">
+            <div>カドショ巡回を記録する</div>
+            <div style="font-size:12px;opacity:0.8;font-weight:500;margin-top:2px;">行ってきたお店の価格を入力</div>
+          </div>
+        </button>
+        <button onclick="showShopList()" style="width:100%;background:var(--surface);color:var(--text);border:1.5px solid var(--border);border-radius:16px;padding:20px;font-size:16px;font-weight:900;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:12px;">
+          <span style="font-size:28px;">📊</span>
+          <div style="text-align:left;">
+            <div>価格一覧を見る</div>
+            <div style="font-size:12px;color:var(--text2);font-weight:500;margin-top:2px;">店舗ごとの最新価格を確認</div>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- 記録セクション -->
+    <div id="shopRecord" style="display:none;">
+
+      <!-- パンくずリスト（1行） -->
+      <div style="display:flex;align-items:center;gap:6px;padding:10px 0 12px;overflow:hidden;">
+        <button onclick="showShopTop()" style="background:none;border:none;padding:0;cursor:pointer;font-size:12px;color:var(--text2);flex-shrink:0;white-space:nowrap;">← 終了</button>
+        <span style="color:var(--border);flex-shrink:0;">|</span>
+        <span id="bc-shop" onclick="confirmEditShop()" style="font-size:12px;font-weight:900;border-radius:20px;padding:3px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;flex-shrink:1;"></span>
+        <span id="bc-sep1" style="color:var(--text2);font-size:11px;display:none;flex-shrink:0;">›</span>
+        <span id="bc-loc" onclick="confirmEditLocation()" style="font-size:12px;font-weight:700;border-radius:20px;padding:3px 8px;cursor:pointer;white-space:nowrap;display:none;flex-shrink:0;"></span>
+        <span id="bc-sep2" style="color:var(--text2);font-size:11px;display:none;flex-shrink:0;">›</span>
+        <span id="bc-card" style="font-size:12px;font-weight:700;border-radius:20px;padding:3px 8px;white-space:nowrap;display:none;flex-shrink:0;"></span>
+        <span id="bc-sep3" style="color:var(--text2);font-size:11px;display:none;flex-shrink:0;">›</span>
+        <span id="bc-confirm" style="font-size:12px;font-weight:700;border-radius:20px;padding:3px 8px;white-space:nowrap;display:none;flex-shrink:0;"></span>
+      </div>
+
+      <!-- STEP1: 店舗選択 -->
+      <div id="shopStep1">
+        <div style="font-size:16px;font-weight:900;margin-bottom:4px;">どのお店に行きましたか？</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">1店舗ずつ記録していきます</div>
+        <div style="display:flex;flex-direction:column;gap:10px;" id="shopBtnList">
+          <!-- JSで生成 -->
+        </div>
+      </div>
+
+      <!-- STEP1.5: 在庫追加先選択 -->
+      <div id="shopStep15" style="display:none;">
+        <div style="text-align:center;padding:10px 0 20px;">
+          <div style="font-size:16px;font-weight:900;margin-bottom:4px;">購入した場合、どちらの在庫に追加しますか？</div>
+          <div style="font-size:13px;color:var(--text2);">購入しなかった場合は後で選べます</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <button onclick="selectStockLocation('home')" style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:20px;font-size:16px;font-weight:900;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:12px;">
+            <span style="font-size:32px;">🏠</span>
+            <div style="text-align:left;">
+              <div>ユーザーB家</div>
+              <div style="font-size:12px;color:var(--text2);font-weight:500;margin-top:2px;">俺・ユーザーBの在庫に追加</div>
+            </div>
+          </button>
+          <button onclick="selectStockLocation('parents')" style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:20px;font-size:16px;font-weight:900;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:12px;">
+            <span style="font-size:32px;">🏡</span>
+            <div style="text-align:left;">
+              <div>拠点B</div>
+              <div style="font-size:12px;color:var(--text2);font-weight:500;margin-top:2px;">ユーザーDの在庫に追加</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP2: カード価格＋購入枚数入力 -->
+      <div id="shopStep2" style="display:none;">
+        <!-- 固定ヘッダー -->
+        <div style="position:sticky;top:0;background:var(--bg);padding:6px 0;z-index:10;">
+          <!-- 選択済みカード一覧 -->
+          <div id="shopSelectedList" style="display:none;background:var(--surface);border-radius:12px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--border);">
+            <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px;">✅ 記録済み</div>
+            <div id="shopSelectedItems" style="display:flex;flex-direction:column;gap:4px;"></div>
+          </div>
+          <!-- 確認画面へボタン（固定） -->
+          <button onclick="goToShopConfirm()" id="shopSubmitBtn" style="width:100%;background:var(--accent);color:white;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 3px 10px rgba(37,99,235,0.3);">
+            確認画面へ →
+          </button>
+        </div>
+
+        <!-- カテゴリ・レアリティ ドロップダウン -->
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <select id="shopCatSelect" onchange="switchShopCat(this.value)"
+            style="flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:11px 10px;font-size:13px;font-weight:700;font-family:inherit;color:var(--text);cursor:pointer;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path d=%22M1 1l5 5 5-5%22 stroke=%22%23999%22 stroke-width=%221.5%22 fill=%22none%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;">
+            <option value="不足">⚠️ 不足中</option>
+            <option value="ポケモン">🐾 ポケモン</option>
+            <option value="グッズ">🎒 グッズ</option>
+            <option value="ポケモンの道具">🔧 道具</option>
+            <option value="サポート">👤 サポート</option>
+            <option value="スタジアム">🏟 スタジアム</option>
+            <option value="エネルギー">⚡ エネルギー</option>
+          </select>
+          <select id="shopRaritySelect" onchange="switchShopRarity(this.value)"
+            style="width:100px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:11px 10px;font-size:13px;font-weight:700;font-family:inherit;color:var(--text);cursor:pointer;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path d=%22M1 1l5 5 5-5%22 stroke=%22%23999%22 stroke-width=%221.5%22 fill=%22none%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;">
+            <option value="">すべて</option>
+            <option value="RR">RR</option>
+            <option value="R">R</option>
+            <option value="ACE">ACE</option>
+            <option value="-">ノーマル</option>
+          </select>
+        </div>
+
+        <!-- カード選択エリア -->
+        <div style="background:var(--red-light);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:11px;font-weight:700;color:var(--red);">
+          ⚠️ 不足中のカードを先に表示
+        </div>
+        <div id="shopCardList" style="display:flex;flex-direction:column;gap:10px;"></div>
+        <!-- ページネーション -->
+        <div id="shopPagination" style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:16px;"></div>
+      </div>
+
+      <!-- STEP2.5: 確認画面 -->
+      <div id="shopStep25" style="display:none;">
+        <div style="font-size:18px;font-weight:900;margin-bottom:16px;">📋 内容を確認</div>
+        <div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">お店</div>
+          <div style="font-size:14px;font-weight:900;" id="confirmShopName"></div>
+        </div>
+
+        <!-- 在庫場所 -->
+        <div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">在庫追加先</div>
+          <div style="font-size:14px;font-weight:900;" id="confirmLocation"></div>
+        </div>
+
+        <!-- カード一覧（編集可） -->
+        <div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">記録するカード</div>
+          <div id="confirmCardList" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+
+        <!-- 合計 -->
+        <div style="background:var(--accent-light);border-radius:14px;padding:14px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:14px;font-weight:700;color:var(--accent);">合計購入枚数</span>
+            <span style="font-size:24px;font-weight:900;font-family:'DM Mono',monospace;color:var(--accent);" id="confirmTotal">0枚</span>
+          </div>
+        </div>
+
+        <!-- 完了ボタン -->
+        <button onclick="submitShopPrices()" id="shopFinalBtn" style="width:100%;background:var(--green);color:white;border:none;border-radius:14px;padding:16px;font-size:16px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 4px 12px rgba(22,163,74,0.3);margin-bottom:10px;">
+          ✅ これで記録する
+        </button>
+
+        <!-- 修正ボタン3つ -->
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button onclick="confirmEditCards()" style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:13px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;text-align:left;">
+            🃏 カードを追加・修正する
+          </button>
+          <button onclick="confirmEditLocation()" style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:13px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;text-align:left;">
+            🏠 在庫場所を変更する
+          </button>
+          <button onclick="confirmEditShop()" style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:13px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;text-align:left;">
+            🏪 お店を変更する
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP3: 完了 -->
+      <div id="shopStep3" style="display:none;text-align:center;padding:40px 20px;">
+        <div style="font-size:64px;margin-bottom:16px;">🎉</div>
+        <div style="font-size:22px;font-weight:900;margin-bottom:8px;">お疲れさまでした！</div>
+        <div style="font-size:15px;color:var(--text2);margin-bottom:8px;">カドショ巡回、ありがとうございます🙏</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:24px;" id="shopStep3Desc"></div>
+        <button onclick="backToStep1()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:14px;padding:16px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;margin-bottom:10px;">
+          🏪 別のお店も記録する
+        </button>
+        <button onclick="switchPage('mercari',document.getElementById('nav-mercari'))" style="width:100%;background:var(--surface2);color:var(--text);border:none;border-radius:14px;padding:16px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;">
+          📊 不足カードを確認する
+        </button>
+      </div>
+    </div>
+
+    <!-- 一覧セクション -->
+    <div id="shopListSection" style="display:none;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <button onclick="showShopTop()" style="background:var(--surface2);border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;flex-shrink:0;">← 戻る</button>
+        <!-- 店舗別・カード別タブ -->
+        <div style="display:flex;flex:1;background:var(--surface2);border-radius:12px;padding:3px;gap:3px;">
+          <button id="shopListTab-shop" onclick="switchShopListView('shop')"
+            style="flex:1;border:none;border-radius:9px;padding:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--accent);color:white;">
+            🏪 店舗別
+          </button>
+          <button id="shopListTab-card" onclick="switchShopListView('card')"
+            style="flex:1;border:none;border-radius:9px;padding:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;background:transparent;color:var(--text2);">
+            🃏 カード別
+          </button>
+        </div>
+      </div>
+
+      <!-- 店舗別ビュー -->
+      <div id="shopListViewShop">
+        <div class="shop-page" id="shopPage">
+          <div class="loading">読み込み中<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
+        </div>
+      </div>
+
+      <!-- カード別ビュー -->
+      <div id="shopListViewCard" style="display:none;">
+        <!-- 絞り込みドロップダウン -->
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <select id="cardViewCatSelect" onchange="updateCardPriceSelect()"
+            style="flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:10px 10px;font-size:13px;font-weight:700;font-family:inherit;color:var(--text);cursor:pointer;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path d=%22M1 1l5 5 5-5%22 stroke=%22%23999%22 stroke-width=%221.5%22 fill=%22none%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;">
+            <option value="">すべてのカテゴリ</option>
+            <option value="ポケモン">🐾 ポケモン</option>
+            <option value="グッズ">🎒 グッズ</option>
+            <option value="ポケモンの道具">🔧 道具</option>
+            <option value="サポート">👤 サポート</option>
+            <option value="スタジアム">🏟 スタジアム</option>
+            <option value="エネルギー">⚡ エネルギー</option>
+          </select>
+          <select id="cardViewRaritySelect" onchange="updateCardPriceSelect()"
+            style="width:100px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:10px 10px;font-size:13px;font-weight:700;font-family:inherit;color:var(--text);cursor:pointer;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path d=%22M1 1l5 5 5-5%22 stroke=%22%23999%22 stroke-width=%221.5%22 fill=%22none%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;">
+            <option value="">すべて</option>
+            <option value="RR">RR</option>
+            <option value="R">R</option>
+            <option value="ACE">ACE</option>
+            <option value="-">ノーマル</option>
+          </select>
+        </div>
+        <!-- カード選択 -->
+        <select id="shopCardPriceSelect" onchange="renderShopByCard(this.value)"
+          style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:11px 14px;font-size:14px;font-weight:700;font-family:inherit;color:var(--text);cursor:pointer;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path d=%22M1 1l5 5 5-5%22 stroke=%22%23999%22 stroke-width=%221.5%22 fill=%22none%22/></svg>');background-repeat:no-repeat;background-position:right 14px center;margin-bottom:12px;">
+          <option value="">カードを選択してください</option>
+        </select>
+        <div id="shopByCardResult"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 履歴ページ -->
+<div class="page" id="page-history">
+  <div class="history-page" id="historyPage">
+    <div class="loading">読み込み中<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
+  </div>
+</div>
+
+<!-- ハンバーガーメニュー -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  <h2>メニュー</h2>
+  <button class="drawer-item" onclick="switchPage('inventory',document.querySelector('.tab'));closeDrawer()">
+    <span class="d-icon">📦</span>在庫一覧
+  </button>
+  <button class="drawer-item" onclick="switchPage('deck',document.querySelectorAll('.tab')[1]);closeDrawer()">
+    <span class="d-icon">🎴</span>デッキ管理
+  </button>
+  <button class="drawer-item" onclick="switchPage('shop',document.querySelectorAll('.tab')[2]);closeDrawer()">
+    <span class="d-icon">🏪</span>カドショ価格
+  </button>
+  <button class="drawer-item" onclick="switchPage('history',null);closeDrawer()">
+    <span class="d-icon">📋</span>取引履歴
+  </button>
+</div>
+
+<!-- 出品確認モーダル -->
+<div class="modal-overlay" id="listModal">
+  <div class="modal">
+    <h3 id="listModalTitle">売れましたか？</h3>
+    <p id="listModalDesc">在庫から自動でマイナスされます。</p>
+    <input class="modal-input" type="number" id="listPrice" placeholder="売値（円）を入力">
+    <div id="listStockPreview" style="background:var(--red-light);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;display:none;">
+      <div style="font-weight:700;color:var(--red);margin-bottom:6px;">⚠️ 以下の在庫がマイナスされます</div>
+      <div id="listStockList"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-btn confirm" onclick="confirmList()">🎉 売れた！取引開始</button>
+      <button class="modal-btn cancel" onclick="closeModal('listModal')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- 投稿編集モーダル -->
+<div class="modal-overlay" id="editPostModal">
+  <div class="modal">
+    <h3>✏️ 投稿を編集</h3>
+    <textarea id="editPostContent" rows="4"
+      style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;padding:12px;font-size:14px;font-family:inherit;color:var(--text);resize:none;outline:none;box-sizing:border-box;margin-bottom:10px;"></textarea>
+    <!-- 現在の画像 -->
+    <div id="editPostCurrentImg" style="display:none;margin-bottom:10px;">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">現在の画像</div>
+      <div style="position:relative;display:inline-block;width:100%;">
+        <img id="editPostPreviewImg" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;">
+        <button onclick="removeEditPostImg()" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);color:white;border:none;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;">✕</button>
+      </div>
+    </div>
+    <!-- 新しい画像添付 -->
+    <label style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;">
+      📷 写真を変更
+      <input type="file" accept="image/*" id="editPostImageInput" style="display:none;" onchange="previewEditPostImage(this)">
+    </label>
+    <div class="modal-btns">
+      <button class="modal-btn confirm" onclick="saveEditPostModal()">💾 保存する</button>
+      <button class="modal-btn cancel" onclick="closeModal('editPostModal')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- 価格編集モーダル -->
+<div class="modal-overlay" id="editPriceModal">
+  <div class="modal">
+    <h3 id="editPriceTitle">価格を編集</h3>
+    <div style="display:flex;align-items:center;background:var(--surface2);border-radius:10px;padding:0 14px;border:1.5px solid var(--border);margin-bottom:16px;">
+      <span style="font-size:16px;color:var(--text2);margin-right:6px;">¥</span>
+      <input type="number" id="editPriceInput" style="flex:1;border:none;background:transparent;font-size:22px;font-weight:900;font-family:'DM Mono',monospace;padding:14px 0;outline:none;width:100%;">
+    </div>
+    <div class="modal-btns">
+      <button class="modal-btn confirm" onclick="saveEditPrice()">💾 保存する</button>
+      <button class="modal-btn cancel" onclick="closeModal('editPriceModal')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- 取引完了モーダル -->
+<div class="modal-overlay" id="completeModal">
+  <div class="modal">
+    <h3>取引完了！</h3>
+    <p id="completeModalDesc">取引が完了しました。履歴に移動します。</p>
+    <div class="modal-btns">
+      <button class="modal-btn confirm" style="background:var(--green)" onclick="confirmComplete()">✅ 完了にする</button>
+      <button class="modal-btn cancel" onclick="closeModal('completeModal')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- 画像モーダル -->
+<div class="modal-overlay" id="imageModalOverlay" onclick="closeImageModal()" style="align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border-radius:16px;padding:16px;width:90%;max-width:400px;position:relative;" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div id="imageModalTitle" style="font-size:14px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+      <button onclick="closeImageModal()" style="background:var(--surface2);border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;flex-shrink:0;margin-left:8px;">✕</button>
+    </div>
+    <img id="imageModalImg" src="" style="width:100%;border-radius:10px;object-fit:contain;max-height:60vh;">
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 掲示板ページ -->
+<div class="page" id="page-board">
+  <div style="padding:12px;display:flex;flex-direction:column;gap:12px;">
+
+    <!-- 投稿フォーム -->
+    <div style="background:var(--surface);border-radius:16px;padding:16px;border:1px solid var(--border);">
+      <div style="font-size:14px;font-weight:900;margin-bottom:12px;">投稿する</div>
+
+      <!-- 投稿者選択 -->
+      <div id="boardAuthorBtns" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;"></div>
+
+      <!-- テキスト入力 -->
+      <textarea id="boardContent" placeholder="今日のTCGカード情報を共有しよう！" rows="3"
+        style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;padding:12px;font-size:14px;font-family:inherit;color:var(--text);resize:none;outline:none;box-sizing:border-box;margin-bottom:8px;"></textarea>
+
+      <!-- 画像添付 -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;">
+          📷 写真を添付
+          <input type="file" accept="image/*" id="boardImageInput" style="display:none;" onchange="previewBoardImage(this)">
+        </label>
+        <span id="boardImageName" style="font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;"></span>
+      </div>
+      <div id="boardImagePreview" style="display:none;margin-bottom:12px;">
+        <img id="boardPreviewImg" style="width:100%;max-height:200px;object-fit:cover;border-radius:10px;">
+      </div>
+
+      <button onclick="submitPost()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:900;font-family:inherit;cursor:pointer;">投稿する</button>
+    </div>
+
+    <!-- 投稿一覧 -->
+    <div id="boardPosts">
+      <div class="loading">読み込み中<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-inventory" onclick="switchPage('inventory',this)">
+    <span class="nav-icon">📦</span>在庫
+  </button>
+  <button class="nav-btn" id="nav-deck" onclick="switchPage('deck',this)">
+    <span class="nav-icon">🎴</span>デッキ
+  </button>
+  <button class="nav-btn" id="nav-mercari" onclick="switchPage('mercari',this)">
+    <span class="nav-icon">📋</span>管理
+  </button>
+  <button class="nav-btn" id="nav-shop" onclick="switchPage('shop',this)">
+    <span class="nav-icon">🏪</span>カドショ
+  </button>
+  <button class="nav-btn" id="nav-board" onclick="switchPage('board',this)">
+    <span class="nav-icon">📢</span>掲示板
+  </button>
+</div>
+
+<script>
+const SB_URL = 'https://your-project.supabase.co';
+const SB_KEY = 'your-supabase-anon-key';
+const H = {
+  'Content-Type': 'application/json',
+  'apikey': SB_KEY,
+  'Authorization': `Bearer ${SB_KEY}`,
+  'Prefer': 'return=representation'
+};
+
+let cards = [], decks = [], deckCards = [], shopPrices = [], sales = [];
+let isAdmin = false, currentFilter = 'all', currentSort = '', currentCat = '', currentRarity = '';
+let pendingListDeckId = null, pendingCompleteId = null;
+let selectedDeckCardName = {};
+
+// ===== API =====
+async function sbFetch(table, query='') {
+  return []; // ポートフォリオ用：ダミーデータを使用
+}
+async function sbPost(table, data) {
+  // ポートフォリオ用：ローカルのみ反映（DB書き込みなし）
+  const dummy = { ...data, id: 'dummy-' + Date.now(), created_at: new Date().toISOString() };
+  return [dummy];
+}
+async function sbPatch(table, id, data) {
+  // ポートフォリオ用：DB書き込みなし
+}
+async function sbDelete(table, id) {
+  // ポートフォリオ用：DB書き込みなし
+}
+
+// ===== 初期化 =====
+async function init() {
+  try {
+    // ===== ダミーデータ（ポートフォリオ用） =====
+    cards = [
+      { id:'c1', name:'炎タイプex', rarity:'RR', category:'ポケモン', stock_home:3, stock_parents:2, mercari_price:1200, memo:'', image_url:'' },
+      { id:'c2', name:'水タイプex', rarity:'RR', category:'ポケモン', stock_home:1, stock_parents:4, mercari_price:800, memo:'', image_url:'' },
+      { id:'c3', name:'草タイプex', rarity:'RR', category:'ポケモン', stock_home:0, stock_parents:1, mercari_price:950, memo:'', image_url:'' },
+      { id:'c4', name:'電気タイプR', rarity:'R', category:'ポケモン', stock_home:2, stock_parents:0, mercari_price:600, memo:'', image_url:'' },
+      { id:'c5', name:'エスパータイプ', rarity:'-', category:'ポケモン', stock_home:5, stock_parents:3, mercari_price:200, memo:'', image_url:'' },
+      { id:'c6', name:'スーパーボール', rarity:'-', category:'グッズ', stock_home:4, stock_parents:6, mercari_price:150, memo:'', image_url:'' },
+      { id:'c7', name:'ハイパーボール', rarity:'-', category:'グッズ', stock_home:2, stock_parents:2, mercari_price:300, memo:'', image_url:'' },
+      { id:'c8', name:'マスターボール', rarity:'RR', category:'グッズ', stock_home:1, stock_parents:0, mercari_price:2000, memo:'', image_url:'' },
+      { id:'c9', name:'スペシャルカード', rarity:'ACE', category:'グッズ', stock_home:0, stock_parents:0, mercari_price:3500, memo:'', image_url:'' },
+      { id:'c10', name:'回復アイテム', rarity:'R', category:'ポケモンの道具', stock_home:3, stock_parents:1, mercari_price:400, memo:'', image_url:'' },
+      { id:'c11', name:'強化アイテム', rarity:'-', category:'ポケモンの道具', stock_home:0, stock_parents:2, mercari_price:250, memo:'', image_url:'' },
+      { id:'c12', name:'サポーターA', rarity:'R', category:'サポート', stock_home:2, stock_parents:3, mercari_price:700, memo:'', image_url:'' },
+      { id:'c13', name:'サポーターB', rarity:'-', category:'サポート', stock_home:4, stock_parents:4, mercari_price:180, memo:'', image_url:'' },
+      { id:'c14', name:'スタジアムA', rarity:'R', category:'スタジアム', stock_home:1, stock_parents:1, mercari_price:500, memo:'', image_url:'' },
+      { id:'c15', name:'基本炎エネルギー', rarity:'-', category:'エネルギー', stock_home:12, stock_parents:8, mercari_price:50, memo:'', image_url:'' },
+      { id:'c16', name:'基本水エネルギー', rarity:'-', category:'エネルギー', stock_home:10, stock_parents:5, mercari_price:50, memo:'', image_url:'' },
+    ];
+    decks = [
+      { id:'d1', name:'炎デッキ', created_at:'2026-03-01T00:00:00' },
+      { id:'d2', name:'水デッキ', created_at:'2026-03-10T00:00:00' },
+    ];
+    deckCards = [
+      { id:'dc1', deck_id:'d1', card_id:'c1', card_name:'炎タイプex', quantity:4 },
+      { id:'dc2', deck_id:'d1', card_id:'c6', card_name:'スーパーボール', quantity:4 },
+      { id:'dc3', deck_id:'d1', card_id:'c12', card_name:'サポーターA', quantity:3 },
+      { id:'dc4', deck_id:'d1', card_id:'c15', card_name:'基本炎エネルギー', quantity:10 },
+      { id:'dc5', deck_id:'d2', card_id:'c2', card_name:'水タイプex', quantity:4 },
+      { id:'dc6', deck_id:'d2', card_id:'c7', card_name:'ハイパーボール', quantity:4 },
+      { id:'dc7', deck_id:'d2', card_id:'c9', card_name:'スペシャルカード', quantity:2 },
+      { id:'dc8', deck_id:'d2', card_id:'c16', card_name:'基本水エネルギー', quantity:8 },
+    ];
+    sales = [
+      { id:'s1', deck_id:'d1', deck_name:'炎デッキ', status:'active', sold_price:8000, note:'', created_at:'2026-03-20T00:00:00' },
+    ];
+    shopPrices = [
+      { id:'sp1', card_id:'c1', card_name:'炎タイプex', shop_name:'カードショップA', price:1100, recorded_date:'3/20', created_at:'2026-03-20T00:00:00' },
+      { id:'sp2', card_id:'c1', card_name:'炎タイプex', shop_name:'カードショップB', price:1300, recorded_date:'3/22', created_at:'2026-03-22T00:00:00' },
+      { id:'sp3', card_id:'c2', card_name:'水タイプex', shop_name:'ブックオフA', price:750, recorded_date:'3/21', created_at:'2026-03-21T00:00:00' },
+      { id:'sp4', card_id:'c2', card_name:'水タイプex', shop_name:'カードショップA', price:850, recorded_date:'3/21', created_at:'2026-03-21T00:00:00' },
+      { id:'sp5', card_id:'c8', card_name:'マスターボール', shop_name:'カードショップC', price:1900, recorded_date:'3/23', created_at:'2026-03-23T00:00:00' },
+      { id:'sp6', card_id:'c9', card_name:'スペシャルカード', shop_name:'ブックオフB', price:3200, recorded_date:'3/24', created_at:'2026-03-24T00:00:00' },
+      { id:'sp7', card_id:'c12', card_name:'サポーターA', shop_name:'カードショップB', price:650, recorded_date:'3/22', created_at:'2026-03-22T00:00:00' },
+    ];
+    posts = [
+      { id:'p1', author:'ユーザーA', content:'炎タイプexがカードショップAで特価になってた！早めに補充しておこう', image_url:'', likes:['ユーザーB','ユーザーC'], created_at:'2026-03-24T10:00:00' },
+      { id:'p2', author:'ユーザーB', content:'水デッキのスペシャルカードが全然見つからない。どこかで見かけたら教えて！', image_url:'', likes:['ユーザーA'], created_at:'2026-03-23T15:30:00' },
+      { id:'p3', author:'ユーザーD', content:'ブックオフAで水タイプex補充してきたよ。拠点Bに4枚追加しました', image_url:'', likes:['ユーザーA','ユーザーB','ユーザーC'], created_at:'2026-03-22T11:00:00' },
+    ];
+    renderInventory();
+    renderSummary();
+    renderDecks();
+    renderMercari();
+    renderShop();
+    renderHistory();
+    renderBoard();
+    startNotifPolling();
+  } catch(e) {
+    document.getElementById('cardList').innerHTML = `<div class="empty"><div class="e-icon">⚠️</div><p>読み込みエラー<br>${e.message}</p></div>`;
+  }
+}
+
+// ===== 在庫レンダリング =====
+const CAT_ORDER = ['ポケモン','グッズ','ポケモンの道具','サポート','スタジアム','エネルギー'];
+const CAT_ICON = { 'ポケモン':'🐾','グッズ':'🎒','ポケモンの道具':'🔧','サポート':'👤','スタジアム':'🏟','エネルギー':'⚡' };
+
+function renderInventory() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  let list = [...cards];
+  if (q) list = list.filter(c => c.name.toLowerCase().includes(q));
+  if (currentCat) list = list.filter(c => (c.category||'グッズ') === currentCat);
+  if (currentRarity === '-') list = list.filter(c => !c.rarity || c.rarity === '-');
+  else if (currentRarity) list = list.filter(c => c.rarity === currentRarity);
+  if (currentFilter === 'rare') list = list.filter(c => c.rarity && c.rarity !== '-');
+  if (currentFilter === 'stock') list = list.filter(c => (c.stock_home||0)+(c.stock_parents||0) > 0);
+  if (currentFilter === 'nostock') list = list.filter(c => (c.stock_home||0)+(c.stock_parents||0) === 0);
+  if (currentSort === 'price') list.sort((a,b) => (b.mercari_price||0)-(a.mercari_price||0));
+  if (currentSort === 'name') list.sort((a,b) => a.name.localeCompare(b.name,'ja'));
+
+  if (!list.length) {
+    document.getElementById('cardList').innerHTML = `<div class="empty"><div class="e-icon">🔍</div><p>カードが見つかりません</p></div>`;
+    renderSummary(); return;
+  }
+
+  // カテゴリ絞り込み中 or ソート中はそのまま表示
+  if (currentCat || currentSort || q) {
+    document.getElementById('cardList').innerHTML = list.map(cardHTML).join('');
+  } else {
+    // カテゴリ別セクション表示
+    let html = '';
+    const used = new Set();
+    CAT_ORDER.forEach(cat => {
+      const group = list.filter(c => (c.category||'グッズ') === cat);
+      if (!group.length) return;
+      group.forEach(c => used.add(c.id));
+      html += `<div class="cat-section">
+        <div class="cat-header"><span class="cat-icon">${CAT_ICON[cat]}</span>${cat} <span class="cat-count">${group.length}種</span></div>
+        ${group.map(cardHTML).join('')}
+      </div>`;
+    });
+    // 未分類
+    const uncategorized = list.filter(c => !used.has(c.id));
+    if (uncategorized.length) {
+      html += `<div class="cat-section">
+        <div class="cat-header"><span class="cat-icon">❓</span>未分類 <span class="cat-count">${uncategorized.length}種</span></div>
+        ${uncategorized.map(cardHTML).join('')}
+      </div>`;
+    }
+    document.getElementById('cardList').innerHTML = html;
+  }
+  renderSummary();
+}
+
+function cardHTML(c) {
+  const total = (c.stock_home||0)+(c.stock_parents||0);
+  const rc = c.rarity==='RR'?'rr':c.rarity==='R'?'r':c.rarity==='ACE'?'ace':'normal';
+  const rl = c.rarity&&c.rarity!=='-'?c.rarity:'−';
+  const mp = c.mercari_price?`¥${c.mercari_price.toLocaleString()}`:'';
+  const cat = c.category||'グッズ';
+
+  // カドショ最安値
+  const myShops = shopPrices.filter(s => s.card_id === c.id);
+  const cheapest = myShops.length ? myShops.reduce((m,s) => s.price < m.price ? s : m) : null;
+  const shopBadge = cheapest ? `<span class="badge normal">🏪¥${cheapest.price.toLocaleString()}</span>` : '';
+
+  // カドショ履歴（店舗ごと最新）
+  const shopByStore = {};
+  myShops.forEach(s => {
+    if (!shopByStore[s.shop_name] || new Date(s.created_at) > new Date(shopByStore[s.shop_name].created_at)) {
+      shopByStore[s.shop_name] = s;
+    }
+  });
+  const shopHistoryHTML = Object.values(shopByStore).length ? `
+    <div class="shop-history">
+      ${Object.values(shopByStore).sort((a,b)=>a.price-b.price).map(s=>`
+        <div class="shop-history-row">
+          <span class="shop-name-text">${s.shop_name}</span>
+          <span class="shop-price-text">¥${s.price.toLocaleString()}</span>
+          <span class="shop-date-text">${s.recorded_date}</span>
+        </div>`).join('')}
+    </div>` : '';
+
+  const adminEditHTML = isAdmin ? `
+    <div style="background:var(--ace-light);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;">
+      <div class="detail-label">✏️ カード情報を編集</div>
+      <input class="detail-input" type="text" id="ename-${c.id}" value="${c.name}" placeholder="カード名">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <select class="detail-input" id="erarity-${c.id}">
+          <option value="RR" ${c.rarity==='RR'?'selected':''}>RR</option>
+          <option value="R" ${c.rarity==='R'?'selected':''}>R</option>
+          <option value="ACE" ${c.rarity==='ACE'?'selected':''}>ACE</option>
+          <option value="-" ${(!c.rarity||c.rarity==='-')?'selected':''}>-</option>
+        </select>
+        <select class="detail-input" id="ecat-${c.id}">
+          <option value="ポケモン" ${cat==='ポケモン'?'selected':''}>🐾 ポケモン</option>
+          <option value="グッズ" ${cat==='グッズ'?'selected':''}>🎒 グッズ</option>
+          <option value="ポケモンの道具" ${cat==='ポケモンの道具'?'selected':''}>🔧 ポケモンの道具</option>
+          <option value="サポート" ${cat==='サポート'?'selected':''}>👤 サポート</option>
+          <option value="スタジアム" ${cat==='スタジアム'?'selected':''}>🏟 スタジアム</option>
+          <option value="エネルギー" ${cat==='エネルギー'?'selected':''}>⚡ エネルギー</option>
+        </select>
+      </div>
+      <input class="detail-input" type="number" id="mercari-${c.id}" value="${c.mercari_price||''}" placeholder="メルカリ値（円）">
+      <div>
+        <div class="detail-label" style="margin-bottom:6px;">📷 カード画像</div>
+        ${c.image_url ? `<img src="${c.image_url}" style="width:100%;max-height:180px;object-fit:contain;border-radius:8px;margin-bottom:8px;background:var(--surface2);">` : ''}
+        <label style="display:block;width:100%;background:var(--accent);color:white;border-radius:8px;padding:9px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;">
+          📷 ${c.image_url ? '画像を変更' : '画像をアップロード'}
+          <input type="file" accept="image/*" style="display:none;" onchange="uploadCardImage('${c.id}', this)">
+        </label>
+        ${c.image_url ? `<button class="save-shop-btn" style="background:var(--red);margin-top:6px;width:100%;" onclick="deleteCardImage('${c.id}')">🗑 画像を削除</button>` : ''}
+        <div id="img-uploading-${c.id}" style="display:none;text-align:center;font-size:12px;color:var(--text2);padding:6px;">アップロード中...</div>
+      </div>
+      <button class="save-shop-btn" style="background:var(--ace);" onclick="saveCardEdit('${c.id}')">保存する</button>
+    </div>` : `
+    ${c.image_url ? `<div onclick="openImageModal('${c.image_url}','${c.name.replace(/'/g,"\\'").replace(/"/g,"&quot;")}')">
+      <img src="${c.image_url}" style="width:100%;max-height:220px;object-fit:contain;border-radius:10px;background:var(--surface2);cursor:pointer;">
+      <div style="text-align:center;font-size:11px;color:var(--text2);margin-top:4px;">👆 タップで拡大</div>
+    </div>` : ''}
+    ${mp?`<div style="font-size:13px;color:var(--red);font-weight:700;font-family:'DM Mono',monospace;">メルカリ参考値: ${mp}</div>`:''}
+    `;
+
+  return `
+<div class="card-item" id="card-${c.id}">
+  <div class="card-header">
+    <div class="card-name-wrap">
+      <div class="card-name">${c.name}</div>
+      <div class="card-badges">
+        <span class="badge ${rc}">${rl}</span>
+        <span class="badge normal" style="background:var(--surface2)">${CAT_ICON[cat]||''} ${cat}</span>
+        ${shopBadge}
+      </div>
+    </div>
+    <div class="mercari-price ${mp?'':'empty'}">${mp||''}</div>
+  </div>
+  <div class="stock-grid">
+    <div class="stock-box">
+      <div class="stock-box-label">🏠 ユーザーB家</div>
+      <div class="stock-control">
+        <button class="sBtn minus" onclick="changeStock('${c.id}','home',-1)">−</button>
+        <div class="sNum" id="sh-${c.id}">${c.stock_home||0}</div>
+        <button class="sBtn plus" onclick="changeStock('${c.id}','home',1)">＋</button>
+      </div>
+    </div>
+    <div class="stock-box">
+      <div class="stock-box-label">🏡 拠点B</div>
+      <div class="stock-control">
+        <button class="sBtn minus" onclick="changeStock('${c.id}','parents',-1)">−</button>
+        <div class="sNum" id="sp-${c.id}">${c.stock_parents||0}</div>
+        <button class="sBtn plus" onclick="changeStock('${c.id}','parents',1)">＋</button>
+      </div>
+    </div>
+  </div>
+  <div class="stock-total">合計 <strong id="st-${c.id}">${total}</strong> 枚</div>
+  <button class="save-stock-btn" id="ssb-${c.id}" onclick="saveStock('${c.id}')" style="display:none;">
+    💾 在庫を保存する
+  </button>
+  <button class="expand-btn" onclick="toggleDetail('${c.id}')">▾ メモ・価格詳細${isAdmin?' / 編集':''}</button>
+  <div class="card-detail" id="detail-${c.id}">
+    ${adminEditHTML}
+    <div>
+      <div class="detail-label">メモ</div>
+      <textarea class="detail-input" rows="2" id="memo-${c.id}" placeholder="メモ..." onchange="saveMemo('${c.id}')">${c.memo||''}</textarea>
+    </div>
+    <div class="shop-entry">
+      <div class="detail-label">🏪 カドショ価格を記録</div>
+      <div class="shop-fields">
+        <select class="detail-input" id="sname-${c.id}">
+          <option value="">店名を選択...</option>
+          <option value="カードショップA">カードショップA</option>
+          <option value="カードショップB">カードショップB</option>
+          <option value="カードショップC">カードショップC</option>
+          <option value="カードショップD">カードショップD</option>
+          <option value="ブックオフA">ブックオフA</option>
+          <option value="ブックオフB">ブックオフB</option>
+          <option value="ブックオフC">ブックオフC</option>
+          <option value="ブックオフD">ブックオフD</option>
+          <option value="カードショップE">カードショップE</option>
+          <option value="カードショップF">カードショップF</option>
+          <option value="カードショップG">カードショップG</option>
+            <option value="ブックオフE">ブックオフE</option>
+        </select>
+        <input class="detail-input" type="number" id="sprice-${c.id}" placeholder="価格">
+      </div>
+      <button class="save-shop-btn" onclick="saveShop('${c.id}')">記録する</button>
+      ${shopHistoryHTML}
+    </div>
+  </div>
+</div>`;
+}
+
+function renderSummary() {
+  const th = cards.reduce((s,c)=>s+(c.stock_home||0),0);
+  const tp = cards.reduce((s,c)=>s+(c.stock_parents||0),0);
+  document.getElementById('summaryBar').innerHTML = `
+    <div class="summary-item"><div class="s-label">総枚数</div><div class="s-value">${th+tp}</div></div>
+    <div class="summary-item"><div class="s-label">🏠 ユーザーB家</div><div class="s-value">${th}</div></div>
+    <div class="summary-item"><div class="s-label">🏡 拠点B</div><div class="s-value">${tp}</div></div>
+    <div class="summary-item"><div class="s-label">種類数</div><div class="s-value">${cards.length}</div></div>
+  `;
+}
+
+// ===== 在庫変更（ローカルのみ） =====
+function changeStock(id, loc, delta) {
+  const card = cards.find(c=>c.id===id);
+  if (!card) return;
+  const field = loc==='home'?'stock_home':'stock_parents';
+  const nv = Math.max(0,(card[field]||0)+delta);
+  card[field] = nv;
+  const el = document.getElementById(loc==='home'?`sh-${id}`:`sp-${id}`);
+  if (el) el.textContent = nv;
+  const total = (card.stock_home||0)+(card.stock_parents||0);
+  const st = document.getElementById(`st-${id}`);
+  if (st) st.textContent = total;
+  // 保存ボタンを表示
+  const btn = document.getElementById(`ssb-${id}`);
+  if (btn) btn.style.display = 'block';
+  renderSummary();
+}
+
+// ===== 在庫保存（DB書き込み） =====
+async function saveStock(id) {
+  const card = cards.find(c=>c.id===id);
+  if (!card) return;
+  const btn = document.getElementById(`ssb-${id}`);
+  if (btn) { btn.textContent = '保存中...'; btn.disabled = true; }
+  try {
+    await sbPatch('cards', id, {
+      stock_home: card.stock_home||0,
+      stock_parents: card.stock_parents||0
+    });
+    if (btn) { btn.style.display = 'none'; btn.textContent = '💾 在庫を保存する'; btn.disabled = false; }
+    showToast('✅ 保存しました');
+  } catch(e) {
+    if (btn) { btn.textContent = '💾 在庫を保存する'; btn.disabled = false; }
+    showToast('⚠️ 保存失敗');
+  }
+}
+
+async function saveMemo(id) {
+  const val = document.getElementById(`memo-${id}`).value;
+  const card = cards.find(c=>c.id===id);
+  if (card) card.memo = val;
+  try { await sbPatch('cards', id, {memo: val}); showToast('メモを保存しました'); }
+  catch(e) { showToast('⚠️ 保存失敗'); }
+}
+
+async function saveMercari(id) {
+  const val = parseInt(document.getElementById(`mercari-${id}`).value)||null;
+  const card = cards.find(c=>c.id===id);
+  if (card) card.mercari_price = val;
+  try { await sbPatch('cards', id, {mercari_price: val}); showToast('価格を保存しました'); renderInventory(); }
+  catch(e) { showToast('⚠️ 保存失敗'); }
+}
+
+async function saveShop(id) {
+  const sn = document.getElementById(`sname-${id}`).value.trim();
+  const sp = parseInt(document.getElementById(`sprice-${id}`).value);
+  if (!sn||!sp) { showToast('店名と価格を入力してください'); return; }
+  const today = new Date().toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'});
+  const card = cards.find(c=>c.id===id);
+  try {
+    const result = await sbPost('shop_prices', {
+      card_id: id, card_name: card?.name||'', shop_name: sn, price: sp, recorded_date: today
+    });
+    if (result&&result[0]) shopPrices.unshift(result[0]);
+    document.getElementById(`sname-${id}`).value='';
+    document.getElementById(`sprice-${id}`).value='';
+    showToast(`${sn} ¥${sp.toLocaleString()} を記録しました`);
+    renderInventory();
+    renderShop();
+  } catch(e) { showToast('⚠️ 保存失敗'); }
+}
+
+// ===== 画像アップロード =====
+async function uploadCardImage(cardId, input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const uploadingEl = document.getElementById(`img-uploading-${cardId}`);
+  if (uploadingEl) uploadingEl.style.display = 'block';
+
+  // ポートフォリオ用：画像アップロードはスキップ
+  imageUrl = null;
+
+  try {
+    const result = await sbPost('posts', { author: selectedBoardAuthor, content, image_url: imageUrl });
+    if (result && result[0]) posts.unshift(result[0]);
+    document.getElementById('boardContent').value = '';
+    document.getElementById('boardImageName').textContent = '';
+    document.getElementById('boardImagePreview').style.display = 'none';
+    document.getElementById('boardImageInput').value = '';
+    boardImageBase64 = null;
+    showToast('📢 投稿しました！');
+    renderBoard();
+  } catch(e) { showToast('⚠️ 投稿失敗'); }
+}
+
+async function deletePost(id) {
+  if (!confirm('この投稿を削除しますか？')) return;
+  try {
+    await sbDelete('posts', id);
+    posts = posts.filter(p=>p.id!==id);
+    renderBoard();
+    showToast('削除しました');
+  } catch(e) { showToast('⚠️ 削除失敗'); }
+}
+
+function renderDecks() {
+  const activeSales = sales.filter(s=>s.status==='active');
+  let html = '';
+
+  // 取引中バナー
+  activeSales.forEach(s => {
+    html += `
+    <div class="active-sale-banner">
+      <div class="sale-badge">🔥 取引中</div>
+      <h2>${s.deck_name}</h2>
+      <p>${s.sold_price ? `¥${s.sold_price.toLocaleString()}` : '価格未設定'} · ${new Date(s.created_at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})}出品</p>
+      <div class="sale-actions">
+        <button class="sale-action-btn complete" onclick="openCompleteModal('${s.id}','${s.deck_name}')">✅ 取引完了</button>
+        <button class="sale-action-btn cancel" onclick="cancelSale('${s.id}')">取消</button>
+      </div>
+    </div>`;
+  });
+
+  if (!decks.length) {
+    html += `<div class="empty"><div class="e-icon">🎴</div><p>デッキがまだ登録されていません</p></div>`;
+    if (isAdmin) html += `<button class="add-deck-btn" onclick="addDeck()">＋ デッキを登録する</button>`;
+    document.getElementById('deckPage').innerHTML = html;
+    return;
+  }
+
+  decks.forEach(d => {
+    const dc = deckCards.filter(r=>r.deck_id===d.id);
+    const totalQty = dc.reduce((s,r)=>s+(r.quantity||0),0);
+    const isSelling = activeSales.some(s=>s.deck_id===d.id);
+
+    const rowsHTML = dc.map(r => {
+      const card = cards.find(c=>c.id===r.card_id);
+      const cname = card ? card.name : (r.card_name||'不明');
+      const needed = r.quantity||1;
+      const home = card ? (card.stock_home||0) : 0;
+      const parents = card ? (card.stock_parents||0) : 0;
+      const total = home + parents;
+      return { cname, needed, home, parents, total };
+    });
+
+    const deckRowsEl = rowsHTML.map(({cname,needed,home,parents,total}) => `
+      <div class="deck-row">
+        <span class="deck-row-name">${cname}</span>
+        <div class="deck-row-right">
+          <span class="deck-qty-badge">${needed}枚必要</span>
+          <span class="shortage-badge ok" id="sb-all-${d.id}-${cname.replace(/\s/g,'')}">${total>= needed?`✓${total}`:`-${needed-total}`}</span>
+        </div>
+      </div>`).join('');
+
+    html += `
+    <div class="deck-card" id="deck-${d.id}">
+      <div class="deck-card-header">
+        <h3>${isSelling?'🔥 ':''} ${d.name}</h3>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="deck-count">${totalQty}/60枚</span>
+          ${isAdmin ? `
+          <button class="dc-btn" style="background:var(--accent-light);color:var(--accent);font-size:11px;width:auto;padding:0 8px;border-radius:8px;height:26px;" onclick="renameDeck('${d.id}','${d.name.replace(/'/g,"\\'")}')">✏️</button>
+          <button class="dc-btn" style="background:#f0fdf4;color:#16a34a;font-size:11px;width:auto;padding:0 8px;border-radius:8px;height:26px;" onclick="copyDeck('${d.id}','${d.name.replace(/'/g,"\\'")}')">📋 コピー</button>
+          <button class="dc-btn trash" style="width:auto;padding:0 8px;border-radius:8px;height:26px;font-size:11px;" onclick="deleteDeck('${d.id}','${d.name.replace(/'/g,"\\'")}')">🗑 削除</button>
+          ` : ''}
+        </div>
+      </div>
+
+      <details id="deck-detail-${d.id}" class="deck-detail-toggle">
+        <summary style="list-style:none;cursor:pointer;padding:8px 0;font-size:12px;font-weight:700;color:var(--text2);display:flex;align-items:center;gap:6px;">
+          <span id="deck-summary-${d.id}">
+            ${(() => {
+              const ngCount = dc.filter(r => {
+                const card = cards.find(c=>c.id===r.card_id);
+                if (!card) return false;
+                return (card.stock_home||0)+(card.stock_parents||0) < (r.quantity||1);
+              }).length;
+              return ngCount > 0
+                ? `<span style="color:var(--red);">⚠️ 不足${ngCount}種 · </span>`
+                : `<span style="color:var(--green);">✓ 充足 · </span>`;
+            })()}
+          </span>
+          <span>カードを見る ▾</span>
+        </summary>
+
+        <div class="shortage-tabs">
+          <button class="shortage-tab active" onclick="switchShortageTab('${d.id}','all',this)">🏠＋🏡合計</button>
+          <button class="shortage-tab" onclick="switchShortageTab('${d.id}','home',this)">🏠うちのみ</button>
+          <button class="shortage-tab" onclick="switchShortageTab('${d.id}','parents',this)">🏡拠点Bのみ</button>
+        </div>
+
+        <div class="deck-rows" id="deckrows-${d.id}">
+          ${(() => {
+            const rows = dc.map(r => {
+              const card = cards.find(c=>c.id===r.card_id);
+              const cname = card ? card.name : (r.card_name||'不明');
+              const needed = r.quantity||1;
+              const home = card?(card.stock_home||0):0;
+              const parents = card?(card.stock_parents||0):0;
+              const total = home+parents;
+              const diff = total - needed;
+              return { r, card, cname, needed, home, parents, total, diff };
+            });
+            const ngRows = rows.filter(x=>x.diff<0);
+            const okRows = rows.filter(x=>x.diff>=0);
+
+            const rowHTML = (x) => `
+              <div class="deck-row" data-home="${x.home}" data-parents="${x.parents}" data-needed="${x.needed}" data-name="${x.cname}">
+                <span class="deck-row-name">${x.cname}</span>
+                <div class="deck-row-right">
+                  ${isAdmin ? `
+                  <button class="dc-btn minus" onclick="updateDeckQty('${x.r.id}','${d.id}',-1)">−</button>
+                  <span class="deck-qty-badge" id="dqb-${x.r.id}">${x.needed}枚</span>
+                  <button class="dc-btn plus" onclick="updateDeckQty('${x.r.id}','${d.id}',1)">＋</button>
+                  <button class="dc-btn trash" onclick="removeDeckCard('${x.r.id}','${d.id}')">🗑</button>
+                  ` : `<span class="deck-qty-badge">${x.needed}枚</span>`}
+                  <span class="shortage-badge ${x.diff>=0?'ok':x.diff===-1?'warn':'ng'}">${x.diff>=0?`✓ ${x.total}枚`:`不足 ${Math.abs(x.diff)}枚`}</span>
+                </div>
+              </div>`;
+
+            if (!rows.length) return '<div style="font-size:12px;color:var(--text2);padding:8px 0;">カード未登録</div>';
+
+            let html = '';
+            if (ngRows.length > 0) {
+              html += `<div style="background:var(--red-light);border-radius:8px;padding:4px 8px;margin-bottom:4px;font-size:10px;font-weight:700;color:var(--red);">⚠️ 不足 ${ngRows.length}種</div>`;
+              html += ngRows.map(rowHTML).join('');
+            }
+            if (okRows.length > 0) {
+              html += ngRows.length > 0 ? `
+                <details style="margin-top:4px;">
+                  <summary style="font-size:11px;color:var(--text2);cursor:pointer;padding:4px 0;font-weight:700;list-style:none;">▸ 充足カード ${okRows.length}種</summary>
+                  ${okRows.map(rowHTML).join('')}
+                </details>` : okRows.map(rowHTML).join('');
+            }
+            return html;
+          })()}
+        </div>
+
+        ${isAdmin ? `
+        <div class="deck-add-card">
+          <h4>＋ カードを追加</h4>
+          <div class="deck-search-wrap">
+            <input class="deck-search-input" type="text" placeholder="カード名で検索..."
+              oninput="searchDeckCard('${d.id}',this.value)"
+              onfocus="document.getElementById('dsr-${d.id}').classList.add('open')"
+              id="dsi-${d.id}">
+            <div class="deck-search-results" id="dsr-${d.id}"></div>
+          </div>
+          <div id="dsc-${d.id}"></div>
+          <div class="deck-add-row">
+            <input class="deck-qty-input" type="number" id="dqty-${d.id}" value="1" min="1" max="4">
+            <button class="deck-add-btn" onclick="addCardToDeck('${d.id}')">デッキに追加</button>
+          </div>
+        </div>
+        ` : ''}
+      </details>
+
+      <button class="list-btn" onclick="openListModal('${d.id}','${d.name}')">🎉 売れた！</button>
+    </div>`;
+  });
+
+  if (isAdmin) html += `<button class="add-deck-btn" onclick="addDeck()">＋ デッキを追加</button>`;
+  document.getElementById('deckPage').innerHTML = html;
+}
+
+function switchShortageTab(deckId, mode, el) {
+  el.closest('.shortage-tabs').querySelectorAll('.shortage-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const rows = document.querySelectorAll(`#deckrows-${deckId} .deck-row`);
+  rows.forEach(row => {
+    const home = parseInt(row.dataset.home)||0;
+    const parents = parseInt(row.dataset.parents)||0;
+    const needed = parseInt(row.dataset.needed)||1;
+    const stock = mode==='home'?home:mode==='parents'?parents:home+parents;
+    const diff = stock - needed;
+    const cls = diff>=0?'ok':diff===-1?'warn':'ng';
+    const label = diff>=0?`✓ ${stock}枚`:`不足 ${Math.abs(diff)}枚`;
+    const badge = row.querySelector('.shortage-badge');
+    if (badge) { badge.className=`shortage-badge ${cls}`; badge.textContent=label; }
+  });
+}
+
+function searchDeckCard(deckId, q) {
+  const res = document.getElementById(`dsr-${deckId}`);
+  if (!q.trim()) { res.classList.remove('open'); return; }
+  const matches = cards.filter(c=>c.name.includes(q)).slice(0,6);
+  if (!matches.length) { res.innerHTML='<div class="deck-search-item" style="color:var(--text2)">見つかりません</div>'; res.classList.add('open'); return; }
+  res.innerHTML = matches.map(c=>`
+    <div class="deck-search-item" onclick="selectDeckCard('${deckId}','${c.id}','${c.name}')">
+      ${c.name} <span style="color:var(--text2);font-size:11px;margin-left:4px;">${c.rarity||''}</span>
+    </div>`).join('');
+  res.classList.add('open');
+}
+
+function selectDeckCard(deckId, cardId, cardName) {
+  selectedDeckCardName[deckId] = { id: cardId, name: cardName };
+  document.getElementById(`dsr-${deckId}`).classList.remove('open');
+  document.getElementById(`dsi-${deckId}`).value = cardName;
+  document.getElementById(`dsc-${deckId}`).innerHTML = `<div class="selected-card-chip">✓ ${cardName}</div>`;
+}
+
+async function updateDeckQty(rowId, deckId, delta) {
+  const row = deckCards.find(r=>r.id===rowId);
+  if (!row) return;
+  const newQty = Math.max(1, (row.quantity||1)+delta);
+  row.quantity = newQty;
+  const el = document.getElementById(`dqb-${rowId}`);
+  if (el) el.textContent = `${newQty}枚`;
+  try {
+    await sbPatch('deck_cards', rowId, {quantity: newQty});
+    renderDecks();
+  } catch(e) { showToast('⚠️ 更新失敗'); }
+}
+
+async function removeDeckCard(rowId, deckId) {
+  if (!confirm('このカードをデッキから削除しますか？')) return;
+  try {
+    await sbDelete('deck_cards', rowId);
+    deckCards = deckCards.filter(r=>r.id!==rowId);
+    showToast('削除しました');
+    renderDecks();
+  } catch(e) { showToast('⚠️ 削除失敗'); }
+}
+
+async function addCardToDeck(deckId) {
+  const sel = selectedDeckCardName[deckId];
+  if (!sel) { showToast('カードを選択してください'); return; }
+  const qty = parseInt(document.getElementById(`dqty-${deckId}`).value)||1;
+  try {
+    const existing = deckCards.find(r=>r.deck_id===deckId&&r.card_id===sel.id);
+    if (existing) {
+      const newQty = (existing.quantity||1)+qty;
+      await sbPatch('deck_cards', existing.id, {quantity: newQty});
+      existing.quantity = newQty;
+    } else {
+      const r = await sbPost('deck_cards',{deck_id:deckId,card_id:sel.id,card_name:sel.name,quantity:qty});
+      if (r&&r[0]) deckCards.push(r[0]);
+    }
+    selectedDeckCardName[deckId] = null;
+    document.getElementById(`dsi-${deckId}`).value='';
+    document.getElementById(`dsc-${deckId}`).innerHTML='';
+    document.getElementById(`dqty-${deckId}`).value='1';
+    showToast(`${sel.name} を追加しました`);
+    renderDecks();
+  } catch(e) { showToast('⚠️ 追加失敗'); }
+}
+
+async function copyDeck(deckId, deckName) {
+  const newName = prompt('コピー後のデッキ名', `${deckName} (コピー)`);
+  if (!newName) return;
+  try {
+    // 新しいデッキを作成
+    const res = await sbPost('decks', { name: newName });
+    if (!res || !res[0]) throw new Error('デッキ作成失敗');
+    const newDeck = res[0];
+    decks.push(newDeck);
+
+    // 元デッキのカードをコピー
+    const srcCards = deckCards.filter(r => r.deck_id === deckId);
+    for (const r of srcCards) {
+      const newCard = await sbPost('deck_cards', {
+        deck_id: newDeck.id,
+        card_id: r.card_id,
+        card_name: r.card_name,
+        quantity: r.quantity || 1
+      });
+      if (newCard && newCard[0]) deckCards.push(newCard[0]);
+    }
+    showToast(`📋 「${newName}」を作成しました！`);
+    renderDecks();
+  } catch(e) { showToast('⚠️ コピー失敗'); }
+}
+
+async function renameDeck(deckId, currentName) {
+  const newName = prompt(`デッキ名を変更する`, currentName);
+  if (!newName || newName === currentName) return;
+  try {
+    await sbPatch('decks', deckId, {name: newName});
+    const deck = decks.find(d=>d.id===deckId);
+    if (deck) deck.name = newName;
+    showToast(`デッキ名を「${newName}」に変更しました`);
+    renderDecks();
+  } catch(e) { showToast('⚠️ 変更失敗'); }
+}
+
+async function deleteDeck(deckId, deckName) {
+  if (!confirm(`「${deckName}」を削除しますか？\nデッキ内のカード情報もすべて削除されます。`)) return;
+  try {
+    // deck_cardsを先に削除
+    const res = await fetch(`${SB_URL}/rest/v1/deck_cards?deck_id=eq.${deckId}`, { method:'DELETE', headers:H });
+    await sbDelete('decks', deckId);
+    decks = decks.filter(d=>d.id!==deckId);
+    deckCards = deckCards.filter(r=>r.deck_id!==deckId);
+    showToast(`「${deckName}」を削除しました`);
+    renderDecks();
+  } catch(e) { showToast('⚠️ 削除失敗'); }
+}
+
+async function addDeck() {
+  const name = prompt('デッキ名を入力してください');
+  if (!name) return;
+  try {
+    const r = await sbPost('decks',{name});
+    if (r&&r[0]) { decks.push(r[0]); renderDecks(); showToast(`デッキ「${name}」を追加しました`); }
+  } catch(e) { showToast('⚠️ 追加失敗'); }
+}
+
+// ===== 出品・取引 =====
+function openListModal(deckId, deckName) {
+  pendingListDeckId = { id: deckId, name: deckName };
+  document.getElementById('listModalTitle').textContent = `「${deckName}」が売れましたか？`;
+  document.getElementById('listPrice').value = '';
+
+  // 在庫マイナスプレビューを生成
+  const dc = deckCards.filter(r=>r.deck_id===deckId);
+  const preview = document.getElementById('listStockPreview');
+  const list = document.getElementById('listStockList');
+  if (dc.length > 0) {
+    const rows = dc.map(r => {
+      const card = cards.find(c=>c.id===r.card_id);
+      if (!card) return '';
+      const qty = r.quantity||1;
+      const after = Math.max(0,(card.stock_home||0)-qty);
+      return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(220,38,38,0.15);">
+        <span style="color:var(--text)">${card.name}</span>
+        <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--red);">${card.stock_home||0} → ${after}枚</span>
+      </div>`;
+    }).join('');
+    list.innerHTML = rows;
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+
+  document.getElementById('listModal').classList.add('open');
+}
+
+// ===== 通知システム =====
+let notifPollTimer = null;
+
+async function checkUnreadNotifs() {
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/notifications?is_read=eq.false&order=created_at.desc&limit=1`,
+      { headers: H }
+    );
+    const notifs = await res.json();
+    if (notifs && notifs.length > 0) {
+      const latest = notifs[0];
+      showBanner(latest.message, latest.deck_name);
+      // 既読にする
+      fetch(`${SB_URL}/rest/v1/notifications?is_read=eq.false`, {
+        method: 'PATCH', headers: H,
+        body: JSON.stringify({ is_read: true })
+      }).catch(()=>{});
+    }
+  } catch(e) {}
+}
+
+async function startNotifPolling() {
+  // 起動時にまず未読チェック
+  await checkUnreadNotifs();
+  // 以降10秒ごとにチェック
+  notifPollTimer = setInterval(checkUnreadNotifs, 10000);
+}
+
+async function sendNotif(deckName) {
+  try {
+    await sbPost('notifications', {
+      message: `🔥 ${deckName} が購入されました！`,
+      deck_name: deckName,
+      is_read: false
+    });
+  } catch(e) {}
+}
+
+function showBanner(message, deckName, id) {
+  const banner = document.getElementById('notifBanner');
+  document.getElementById('notifTitle').textContent = message;
+  document.getElementById('notifSub').textContent = 'メルカリタブで不足カードを確認してね！';
+  banner.classList.add('show');
+  // タップでメルカリタブへ
+  banner.onclick = (e) => {
+    if (e.target.classList.contains('notif-banner-close')) return;
+    switchPage('mercari', document.querySelectorAll('.tab')[2]);
+    closeBanner();
+  };
+  // 8秒後に自動で閉じる
+  setTimeout(() => closeBanner(), 8000);
+}
+
+function closeBanner() {
+  document.getElementById('notifBanner').classList.remove('show');
+}
+
+async function confirmList() {
+  if (!pendingListDeckId) return;
+  const price = parseInt(document.getElementById('listPrice').value)||null;
+  const { id: deckId, name: deckName } = pendingListDeckId;
+
+  // デッキ内カードの在庫をマイナス
+  const dc = deckCards.filter(r=>r.deck_id===deckId);
+  for (const r of dc) {
+    const card = cards.find(c=>c.id===r.card_id);
+    if (!card) continue;
+    const qty = r.quantity||1;
+    const newHome = Math.max(0,(card.stock_home||0)-qty);
+    card.stock_home = newHome;
+    await sbPatch('cards', card.id, {stock_home: newHome}).catch(()=>{});
+  }
+
+  try {
+    const r = await sbPost('sales',{deck_id:deckId,deck_name:deckName,status:'active',sold_price:price});
+    if (r&&r[0]) sales.unshift(r[0]);
+    closeModal('listModal');
+    showToast(`🎉 ${deckName} が売れました！`);
+    await sendNotif(deckName);
+    renderInventory();
+    renderDecks();
+    renderMercari();
+  } catch(e) { showToast('⚠️ 出品失敗'); }
+}
+
+function openCompleteModal(saleId, deckName) {
+  pendingCompleteId = saleId;
+  document.getElementById('completeModalDesc').textContent = `「${deckName}」の取引が完了しました。履歴に移動します。`;
+  document.getElementById('completeModal').classList.add('open');
+}
+
+async function confirmComplete() {
+  if (!pendingCompleteId) return;
+  try {
+    await sbPatch('sales', pendingCompleteId, {status:'completed'});
+    const s = sales.find(s=>s.id===pendingCompleteId);
+    if (s) s.status = 'completed';
+    closeModal('completeModal');
+    showToast('✅ 取引完了しました！');
+    renderDecks();
+    renderMercari();
+    renderHistory();
+  } catch(e) { showToast('⚠️ 更新失敗'); }
+}
+
+async function cancelSale(saleId) {
+  try {
+    await sbDelete('sales', saleId);
+    sales = sales.filter(s=>s.id!==saleId);
+    showToast('出品を取消しました');
+    renderDecks();
+    renderMercari();
+    renderHistory();
+  } catch(e) { showToast('⚠️ 取消失敗'); }
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  pendingListDeckId = null;
+  pendingCompleteId = null;
+}
+
+// ===== カドショ =====
+function showShopTop() {
+  document.getElementById('shopTop').style.display = 'block';
+  document.getElementById('shopRecord').style.display = 'none';
+  document.getElementById('shopListSection').style.display = 'none';
+  document.querySelector('.header').classList.remove('hidden');
+  document.querySelector('.bottom-nav').classList.remove('hidden');
+
+  currentShopName = ''; shopPriceInputs = {};
+}
+const SHOP_LIST = [
+  'カードショップA',
+  'カードショップB',
+  'カードショップC',
+  'カードショップD',
+  'ブックオフA',
+  'ブックオフB',
+  'ブックオフC',
+  'ブックオフD',
+  'カードショップE',
+  'カードショップF',
+  'カードショップG',
+  'ブックオフE'
+];
+
+function updateBreadcrumb(step) {
+  const active = 'background:var(--accent);color:white;';
+  const done = 'background:var(--surface2);color:var(--text);';
+  const none = 'background:none;color:var(--text2);';
+
+  const bcShop = document.getElementById('bc-shop');
+  const bcLoc = document.getElementById('bc-loc');
+  const bcCard = document.getElementById('bc-card');
+  const bcConfirm = document.getElementById('bc-confirm');
+  const sep1 = document.getElementById('bc-sep1');
+  const sep2 = document.getElementById('bc-sep2');
+  const sep3 = document.getElementById('bc-sep3');
+
+  // お店（短縮）
+  const shortName = currentShopName
+    .replace('カードショップ ','').replace('BOOKOFF SUPER BAZAAR ','BOOKOFF ')
+    .replace('BOOKOFF ','BO ').replace(' 立川店','立川').replace(' 多摩境店','多摩境')
+    .replace(' 南大沢店','南大沢').replace(' 武蔵小金井店','武蔵小金井')
+    .replace(' 多摩永山店','多摩永山').replace(' せいせき店','せいせき')
+    .replace(' 八王子店','八王子').replace('TSUTAYA Trading Card ','TSUTAYA ')
+    .replace(' 府中駅前','府中').replace(' 立川店','立川').replace('文教堂TRADING CARD ','文教堂 ');
+  bcShop.textContent = currentShopName ? '🏪 ' + shortName : '🏪 お店';
+  bcShop.style.cssText = 'font-size:12px;font-weight:700;border-radius:20px;padding:4px 10px;cursor:pointer;white-space:nowrap;' + (step==='step1'?active:currentShopName?done:none);
+
+  // 場所
+  if (step === 'step1') { sep1.style.display='none'; bcLoc.style.display='none'; }
+  else {
+    sep1.style.display='inline'; bcLoc.style.display='inline';
+    bcLoc.textContent = currentStockLocation==='home'?'🏠 ユーザーB家':'🏡 拠点B';
+    bcLoc.style.cssText = 'font-size:12px;font-weight:700;border-radius:20px;padding:4px 10px;cursor:pointer;white-space:nowrap;display:inline;' + (step==='step15'?active:done);
+  }
+
+  // カード
+  const cardCount = Object.keys(shopSelectedCards).length;
+  if (step==='step1'||step==='step15') { sep2.style.display='none'; bcCard.style.display='none'; }
+  else {
+    sep2.style.display='inline'; bcCard.style.display='inline';
+    bcCard.textContent = '🃏 カード' + (cardCount>0?` ${cardCount}件`:'');
+    bcCard.style.cssText = 'font-size:12px;font-weight:700;border-radius:20px;padding:4px 10px;white-space:nowrap;display:inline;' + (step==='step2'?active:done);
+  }
+
+  // 確認
+  if (step==='step25') { sep3.style.display='inline'; bcConfirm.style.display='inline'; bcConfirm.textContent='📋 確認'; bcConfirm.style.cssText='font-size:12px;font-weight:700;border-radius:20px;padding:4px 10px;white-space:nowrap;display:inline;'+active; }
+  else { sep3.style.display='none'; bcConfirm.style.display='none'; }
+}
+
+function showShopRecord() {
+  document.getElementById('shopTop').style.display = 'none';
+  document.getElementById('shopRecord').style.display = 'block';
+  document.getElementById('shopListSection').style.display = 'none';
+  document.getElementById('shopStep1').style.display = 'block';
+  document.getElementById('shopStep15').style.display = 'none';
+  document.getElementById('shopStep2').style.display = 'none';
+  document.getElementById('shopStep25').style.display = 'none';
+  document.getElementById('shopStep3').style.display = 'none';
+  document.querySelector('.header').classList.add('hidden');
+  document.querySelector('.bottom-nav').classList.add('hidden');
+
+  updateBreadcrumb('step1');
+  // 店舗ボタンを動的生成
+  const list = document.getElementById('shopBtnList');
+  list.innerHTML = SHOP_LIST.map(s => {
+    const btn = document.createElement('button');
+    btn.textContent = '🏪 ' + s;
+    btn.style.cssText = 'width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:16px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;text-align:left;';
+    btn.onclick = () => selectShop(s);
+    return btn.outerHTML;
+  }).join('');
+  list.querySelectorAll('button').forEach((btn, i) => {
+    btn.onclick = () => selectShop(SHOP_LIST[i]);
+  });
+}
+function showShopList() {
+  document.getElementById('shopTop').style.display = 'none';
+  document.getElementById('shopRecord').style.display = 'none';
+  document.getElementById('shopListSection').style.display = 'block';
+  switchShopListView('shop');
+}
+
+function switchShopListView(view) {
+  const isShop = view === 'shop';
+  document.getElementById('shopListViewShop').style.display = isShop ? 'block' : 'none';
+  document.getElementById('shopListViewCard').style.display = isShop ? 'none' : 'block';
+  document.getElementById('shopListTab-shop').style.cssText = `flex:1;border:none;border-radius:9px;padding:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;background:${isShop?'var(--accent)':'transparent'};color:${isShop?'white':'var(--text2)'};`;
+  document.getElementById('shopListTab-card').style.cssText = `flex:1;border:none;border-radius:9px;padding:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;background:${!isShop?'var(--accent)':'transparent'};color:${!isShop?'white':'var(--text2)'};`;
+  if (isShop) {
+    renderShop();
+  } else {
+    updateCardPriceSelect();
+  }
+}
+
+function updateCardPriceSelect() {
+  const cat = document.getElementById('cardViewCatSelect')?.value || '';
+  const rarity = document.getElementById('cardViewRaritySelect')?.value || '';
+
+  // 価格記録があるカード名を取得
+  const recordedNames = new Set(shopPrices.map(s=>s.card_name));
+
+  // cardsから絞り込み
+  let filtered = cards.filter(c => recordedNames.has(c.name));
+  if (cat) filtered = filtered.filter(c => (c.category||'グッズ') === cat);
+  if (rarity === '-') filtered = filtered.filter(c => !c.rarity || c.rarity === '-');
+  else if (rarity) filtered = filtered.filter(c => c.rarity === rarity);
+  filtered.sort((a,b) => a.name.localeCompare(b.name,'ja'));
+
+  const sel = document.getElementById('shopCardPriceSelect');
+  sel.innerHTML = `<option value="">カードを選択 (${filtered.length}件)</option>` +
+    filtered.map(c=>`<option value="${c.name}">${c.name}${c.rarity&&c.rarity!=='-'?' ['+c.rarity+']':''}</option>`).join('');
+  document.getElementById('shopByCardResult').innerHTML = '';
+}
+
+function renderShopByCard(cardName) {
+  const el = document.getElementById('shopByCardResult');
+  if (!cardName) { el.innerHTML = ''; return; }
+
+  // このカードの全店舗価格（最新のみ）を取得して安い順に並べる
+  const byShop = {};
+  shopPrices.filter(s=>s.card_name===cardName).forEach(s => {
+    if (!byShop[s.shop_name] || new Date(s.created_at) > new Date(byShop[s.shop_name].created_at)) {
+      byShop[s.shop_name] = s;
+    }
+  });
+  const sorted = Object.values(byShop).sort((a,b)=>a.price-b.price);
+  const minPrice = sorted[0]?.price;
+
+  el.innerHTML = `
+    <div style="background:var(--surface);border-radius:14px;overflow:hidden;border:1px solid var(--border);">
+      <div style="background:var(--surface2);padding:10px 14px;font-size:12px;font-weight:700;color:var(--text2);">
+        ${sorted.length}店舗で記録 · 安い順
+      </div>
+      ${sorted.map((s,i)=>`
+        <div style="display:flex;align-items:center;padding:12px 14px;border-bottom:${i<sorted.length-1?'1px solid var(--surface2)':'none'};gap:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:700;word-break:break-all;">${s.shop_name}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px;">${s.recorded_date}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            ${s.price===minPrice?`<span style="background:var(--green-light);color:var(--green);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700;">最安</span>`:''}
+            <div style="font-size:15px;font-weight:900;font-family:'DM Mono',monospace;color:${s.price===minPrice?'var(--green)':'var(--text)'};">¥${s.price.toLocaleString()}</div>
+            <button onclick="editShopPrice('${s.id}','${s.card_name}',${s.price})" style="background:none;border:none;font-size:14px;cursor:pointer;padding:2px;">✏️</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ===== カドショウィザード =====
+let currentShopName = '';
+let shopPriceInputs = {};
+let currentShopCat = '不足';
+let shopSelectedCards = {};
+let currentStockLocation = 'home';
+let currentShopPage = 0;
+let currentShopRarity = '';
+const SHOP_PAGE_SIZE = 10;
+
+function selectShop(shopName) {
+  currentShopName = shopName;
+  shopPriceInputs = {};
+  document.getElementById('shopStep1').style.display = 'none';
+  document.getElementById('shopStep15').style.display = 'block';
+  document.getElementById('shopStep2').style.display = 'none';
+  document.getElementById('shopStep3').style.display = 'none';
+  document.getElementById('shopStep15Title').textContent = '🏪 ' + shopName;
+  updateBreadcrumb('step15');
+}
+
+function selectStockLocation(loc) {
+  currentStockLocation = loc;
+  shopSelectedCards = {};
+  currentShopCat = '不足';
+  currentShopRarity = '';
+  document.getElementById('shopStep15').style.display = 'none';
+  document.getElementById('shopStep2').style.display = 'block';
+  renderShopCardList();
+  updateBreadcrumb('step2');
+}
+
+function backToStep15() {
+  document.getElementById('shopStep2').style.display = 'none';
+  document.getElementById('shopStep15').style.display = 'block';
+}
+
+function renderShopCardList() {
+  const activeSales = sales.filter(s=>s.status==='active');
+  const neededTotal = {};
+  activeSales.forEach(s => {
+    deckCards.filter(r=>r.deck_id===s.deck_id).forEach(r => {
+      if (!neededTotal[r.card_id]) neededTotal[r.card_id] = 0;
+      neededTotal[r.card_id] += (r.quantity||1);
+    });
+  });
+  const shortageIds = new Set(cards.filter(c => {
+    const have = (c.stock_home||0)+(c.stock_parents||0);
+    const need = neededTotal[c.id]||0;
+    return need > 0 && have < need;
+  }).map(c=>c.id));
+
+  // ドロップダウン同期
+  const sel = document.getElementById('shopCatSelect');
+  if (sel) sel.value = currentShopCat;
+  const rsel = document.getElementById('shopRaritySelect');
+  if (rsel) rsel.value = currentShopRarity;
+
+  // 表示カード絞り込み
+  let filtered;
+  if (currentShopCat === '不足') {
+    filtered = cards.filter(c => shortageIds.has(c.id));
+  } else {
+    const inCat = cards.filter(c => (c.category||'グッズ') === currentShopCat);
+    const shortage = inCat.filter(c => shortageIds.has(c.id));
+    const others = inCat.filter(c => !shortageIds.has(c.id));
+    filtered = [...shortage, ...others];
+  }
+
+  // レアリティフィルター
+  if (currentShopRarity === '-') {
+    filtered = filtered.filter(c => !c.rarity || c.rarity === '-');
+  } else if (currentShopRarity) {
+    filtered = filtered.filter(c => c.rarity === currentShopRarity);
+  }
+
+  updateShopSelectedDisplay();
+
+  // ページネーション
+  const totalPages = Math.ceil(filtered.length / SHOP_PAGE_SIZE);
+  if (currentShopPage >= totalPages) currentShopPage = 0;
+  const paged = filtered.slice(currentShopPage * SHOP_PAGE_SIZE, (currentShopPage + 1) * SHOP_PAGE_SIZE);
+
+  const html = paged.map(c => {
+    const have = (c.stock_home||0)+(c.stock_parents||0);
+    const need = neededTotal[c.id]||0;
+    const isShort = shortageIds.has(c.id);
+    const diff = have - need;
+    const lastPrice = shopPrices.filter(s=>s.card_id===c.id&&s.shop_name===currentShopName)
+      .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
+    const isSelected = !!shopSelectedCards[c.id];
+    return `<div style="background:var(--surface);border-radius:14px;padding:14px;border:${isSelected?'2px solid var(--green)':isShort?'1.5px solid var(--red-light)':'1px solid var(--border)'};">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        ${c.image_url?`<img src="${c.image_url}" style="width:44px;height:44px;object-fit:contain;border-radius:8px;background:var(--surface2);flex-shrink:0;">`:`<div style="width:44px;height:44px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🃏</div>`}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div>
+          <div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap;">
+            ${isShort?`<span style="background:var(--red-light);color:var(--red);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700;">不足${Math.abs(diff)}枚</span>`:''}
+            <span style="background:var(--surface2);color:var(--text2);border-radius:20px;padding:2px 7px;font-size:10px;">所持${have}枚</span>
+            ${lastPrice?`<span style="background:var(--green-light);color:var(--green);border-radius:20px;padding:2px 7px;font-size:10px;">前回¥${lastPrice.price.toLocaleString()}</span>`:''}
+            ${isSelected?`<span style="background:var(--green);color:white;border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700;">✓ 記録済み</span>`:''}
+          </div>
+        </div>
+      </div>
+      ${isSelected?`<div style="display:flex;gap:8px;">
+        <div style="flex:1;background:var(--green-light);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:700;color:var(--green);">¥${shopSelectedCards[c.id].price?shopSelectedCards[c.id].price.toLocaleString():'なし'} / ${shopSelectedCards[c.id].buyQty}枚購入</div>
+        <button onclick="editShopCard('${c.id}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;">✏️ 編集</button>
+      </div>`:`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div style="flex:1;display:flex;align-items:center;background:var(--surface2);border-radius:10px;padding:0 12px;border:1.5px solid var(--border);">
+          <span style="font-size:14px;color:var(--text2);margin-right:4px;">¥</span>
+          <input type="number" placeholder="${lastPrice?lastPrice.price:'価格なし'}" id="sp-input-${c.id}" style="flex:1;border:none;background:transparent;font-size:16px;font-weight:700;font-family:'DM Mono',monospace;padding:12px 0;outline:none;width:100%;">
+        </div>
+        <button onclick="markNoStock('${c.id}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;color:var(--text2);">なし</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;background:var(--accent-light);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+        <span style="font-size:13px;font-weight:700;color:var(--accent);flex:1;">購入枚数</span>
+        <button onclick="changeBuyQty('${c.id}',-1)" style="width:34px;height:34px;border-radius:50%;border:none;background:white;color:var(--accent);font-size:20px;cursor:pointer;flex-shrink:0;">−</button>
+        <div id="buy-qty-${c.id}" style="font-size:22px;font-weight:900;font-family:'DM Mono',monospace;min-width:32px;text-align:center;color:var(--accent);">0</div>
+        <button onclick="changeBuyQty('${c.id}',1)" style="width:34px;height:34px;border-radius:50%;border:none;background:var(--accent);color:white;font-size:20px;cursor:pointer;flex-shrink:0;">＋</button>
+        <span style="font-size:12px;color:var(--accent);opacity:0.7;">枚</span>
+      </div>
+      <button onclick="addShopCard('${c.id}')" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:900;font-family:inherit;cursor:pointer;">＋ この価格を追加</button>`}
+    </div>`;
+  }).join('') || '<div style="text-align:center;padding:30px;color:var(--text2);">このカテゴリにカードがありません</div>';
+
+  document.getElementById('shopCardList').innerHTML = html;
+
+  // ページネーションUI
+  const pgEl = document.getElementById('shopPagination');
+  if (pgEl) {
+    if (totalPages <= 1) { pgEl.innerHTML = ''; }
+    else {
+      pgEl.innerHTML = `
+        <button onclick="shopGoPage(${currentShopPage-1})" ${currentShopPage===0?'disabled':''} style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 16px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;opacity:${currentShopPage===0?'0.4':'1'};">← 前</button>
+        <span style="font-size:13px;font-weight:700;color:var(--text2);">${currentShopPage+1} / ${totalPages}</span>
+        <button onclick="shopGoPage(${currentShopPage+1})" ${currentShopPage>=totalPages-1?'disabled':''} style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 16px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;opacity:${currentShopPage>=totalPages-1?'0.4':'1'};">次 →</button>
+      `;
+    }
+  }
+}
+
+function shopGoPage(page) {
+  currentShopPage = page;
+  renderShopCardList();
+}
+
+function goToShopConfirm() {
+  if (Object.keys(shopSelectedCards).length === 0) {
+    showToast('カードを1枚以上追加してください');
+    return;
+  }
+  renderConfirmScreen();
+  document.getElementById('shopStep2').style.display = 'none';
+  document.getElementById('shopStep25').style.display = 'block';
+  updateBreadcrumb('step25');
+}
+
+function renderConfirmScreen() {
+  document.getElementById('confirmShopName').textContent = '🏪 ' + currentShopName;
+  const locLabel = currentStockLocation === 'home' ? '🏠 ユーザーB家' : '🏡 拠点B';
+  document.getElementById('confirmLocation').textContent = locLabel;
+
+  const items = Object.entries(shopSelectedCards);
+  let totalBuy = 0;
+  document.getElementById('confirmCardList').innerHTML = items.map(([cid, data]) => {
+    const card = cards.find(c=>c.id===cid);
+    totalBuy += data.buyQty||0;
+    return `<div id="confirm-row-${cid}" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--surface2);">
+      ${card?.image_url?`<img src="${card.image_url}" style="width:36px;height:36px;object-fit:contain;border-radius:6px;background:var(--surface2);flex-shrink:0;">`:`<div style="width:36px;height:36px;border-radius:6px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🃏</div>`}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${card?.name||'不明'}</div>
+        <div style="font-size:11px;color:var(--text2);">${data.price?'¥'+data.price.toLocaleString():'価格なし'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <button onclick="confirmChangeBuy('${cid}',-1)" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:16px;cursor:pointer;">−</button>
+        <span id="confirm-qty-${cid}" style="font-size:15px;font-weight:900;font-family:'DM Mono',monospace;min-width:24px;text-align:center;">${data.buyQty||0}</span>
+        <button onclick="confirmChangeBuy('${cid}',1)" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--accent);color:white;font-size:16px;cursor:pointer;">＋</button>
+        <button onclick="confirmDeleteCard('${cid}')" style="width:28px;height:28px;border-radius:50%;border:none;background:var(--red-light);color:var(--red);font-size:14px;cursor:pointer;">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('confirmTotal').textContent = totalBuy + '枚';
+}
+
+function confirmChangeBuy(cardId, delta) {
+  if (!shopSelectedCards[cardId]) return;
+  const newQty = Math.max(0, (shopSelectedCards[cardId].buyQty||0) + delta);
+  shopSelectedCards[cardId].buyQty = newQty;
+  // 枚数表示だけ直接更新（再描画なし）
+  const el = document.getElementById('confirm-qty-'+cardId);
+  if (el) el.textContent = newQty;
+  // 合計も更新
+  const total = Object.values(shopSelectedCards).reduce((s,d)=>s+(d.buyQty||0),0);
+  const totalEl = document.getElementById('confirmTotal');
+  if (totalEl) totalEl.textContent = total + '枚';
+}
+
+function confirmDeleteCard(cardId) {
+  delete shopSelectedCards[cardId];
+  if (Object.keys(shopSelectedCards).length === 0) {
+    document.getElementById('shopStep25').style.display = 'none';
+    document.getElementById('shopStep2').style.display = 'block';
+    showToast('カードがなくなったので入力画面に戻りました');
+    return;
+  }
+  // DOM直接削除
+  const row = document.getElementById('confirm-row-'+cardId);
+  if (row) row.remove();
+  const total = Object.values(shopSelectedCards).reduce((s,d)=>s+(d.buyQty||0),0);
+  const totalEl = document.getElementById('confirmTotal');
+  if (totalEl) totalEl.textContent = total + '枚';
+}
+
+function confirmEditCards() {
+  document.getElementById('shopStep25').style.display = 'none';
+  document.getElementById('shopStep2').style.display = 'block';
+}
+
+function confirmEditLocation() {
+  document.getElementById('shopStep25').style.display = 'none';
+  document.getElementById('shopStep15').style.display = 'block';
+}
+
+function confirmEditShop() {
+  document.getElementById('shopStep25').style.display = 'none';
+  document.getElementById('shopStep1').style.display = 'block';
+  currentShopName = '';
+}
+
+function switchShopCat(cat) { currentShopCat = cat; currentShopPage = 0; renderShopCardList(); }
+function switchShopRarity(val) { currentShopRarity = val; currentShopPage = 0; renderShopCardList(); }
+
+function addShopCard(cardId) {
+  const priceEl = document.getElementById('sp-input-'+cardId);
+  const qtyEl = document.getElementById('buy-qty-'+cardId);
+  const price = priceEl ? parseInt(priceEl.value)||null : null;
+  const buyQty = qtyEl ? parseInt(qtyEl.textContent)||0 : 0;
+  shopSelectedCards[cardId] = { price, buyQty };
+  updateShopSelectedDisplay();
+  renderShopCardList();
+}
+
+function editShopCard(cardId) { delete shopSelectedCards[cardId]; renderShopCardList(); }
+
+function updateShopSelectedDisplay() {
+  const items = Object.entries(shopSelectedCards);
+  const listEl = document.getElementById('shopSelectedList');
+  const itemsEl = document.getElementById('shopSelectedItems');
+  if (!listEl||!itemsEl) return;
+  if (!items.length) { listEl.style.display='none'; return; }
+  listEl.style.display='block';
+  itemsEl.innerHTML = items.map(([cid,data]) => {
+    const card = cards.find(c=>c.id===cid);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:2px 0;">
+      <span style="font-weight:700;">${card?.name||'不明'}</span>
+      <span style="color:var(--text2);font-family:'DM Mono',monospace;">${data.price?'¥'+data.price.toLocaleString():'なし'} / ${data.buyQty}枚</span>
+    </div>`;
+  }).join('');
+}
+
+function changeBuyQty(cardId, delta) {
+  const el = document.getElementById(`buy-qty-${cardId}`);
+  if (!el) return;
+  const current = parseInt(el.textContent)||0;
+  const newVal = Math.max(0, current + delta);
+  el.textContent = newVal;
+}
+
+function markNoStock(cardId) {
+  shopPriceInputs[cardId] = null;
+  const input = document.getElementById(`sp-input-${cardId}`);
+  if (input) { input.value = ''; input.placeholder = 'なし'; input.style.color = 'var(--text2)'; }
+}
+
+async function submitShopPrices() {
+  const btn = document.getElementById('shopSubmitBtn');
+  btn.textContent = '保存中...'; btn.disabled = true;
+
+  const today = new Date().toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'});
+  const stockField = currentStockLocation === 'home' ? 'stock_home' : 'stock_parents';
+
+  // shopSelectedCardsから価格・購入枚数を収集
+  const priceEntries = [];
+  const buyEntries = [];
+  Object.entries(shopSelectedCards).forEach(([cardId, data]) => {
+    if (data.price && data.price > 0) priceEntries.push({ cardId, price: data.price });
+    if (data.buyQty > 0) buyEntries.push({ cardId, qty: data.buyQty });
+  });
+
+  try {
+    // カドショ価格を保存
+    for (const { cardId, price } of priceEntries) {
+      const card = cards.find(c=>c.id===cardId);
+      const result = await sbPost('shop_prices', {
+        card_id: cardId, card_name: card?.name||'',
+        shop_name: currentShopName, price, recorded_date: today
+      });
+      if (result&&result[0]) shopPrices.unshift(result[0]);
+    }
+
+    // 購入分の在庫を追加
+    for (const { cardId, qty } of buyEntries) {
+      const card = cards.find(c=>c.id===cardId);
+      if (!card) continue;
+      const newVal = (card[stockField]||0) + qty;
+      card[stockField] = newVal;
+      await sbPatch('cards', cardId, { [stockField]: newVal }).catch(()=>{});
+    }
+
+    const locLabel = currentStockLocation === 'home' ? 'ユーザーB家' : '拠点B';
+    const buyTotal = buyEntries.reduce((s,e)=>s+e.qty, 0);
+    // 全STEPを非表示にしてSTEP3だけ表示
+    ['shopStep1','shopStep15','shopStep2','shopStep25'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+    document.getElementById('shopStep3').style.display = 'block';
+    document.getElementById('shopStep3Desc').textContent =
+      `${currentShopName} で ${priceEntries.length}種類の価格を記録しました！${buyTotal > 0 ? `\n${locLabel}の在庫に合計${buyTotal}枚追加しました🎉` : ''}`;
+    // ページトップへスクロール
+    document.getElementById('shopRecord').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    btn.textContent = '✅ これで記録する'; btn.disabled = false;
+    shopSelectedCards = {};
+    renderShop();
+    if (buyTotal > 0) { renderInventory(); renderSummary(); }
+  } catch(e) {
+    showToast('⚠️ 保存失敗');
+    btn.textContent = '✅ 記録する'; btn.disabled = false;
+  }
+}
+
+function backToStep1() {
+  document.getElementById('shopStep1').style.display = 'block';
+  document.getElementById('shopStep15').style.display = 'none';
+  document.getElementById('shopStep2').style.display = 'none';
+  document.getElementById('shopStep3').style.display = 'none';
+  currentShopName = '';
+  shopPriceInputs = {};
+  updateBreadcrumb('step1');
+}
+
+function renderShop() {
+  if (!shopPrices.length) {
+    document.getElementById('shopPage').innerHTML = `<div class="empty"><div class="e-icon">🏪</div><p>まだカドショ価格が記録されていません</p></div>`;
+    return;
+  }
+  const shopMap = {};
+  shopPrices.forEach(s => {
+    if (!shopMap[s.shop_name]) shopMap[s.shop_name] = {};
+    if (!shopMap[s.shop_name][s.card_name] || new Date(s.created_at) > new Date(shopMap[s.shop_name][s.card_name].created_at)) {
+      shopMap[s.shop_name][s.card_name] = s;
+    }
+  });
+  const html = Object.entries(shopMap).map(([shop, items]) => `
+    <div class="shop-card">
+      <h3>🏪 ${shop}</h3>
+      ${Object.values(items).sort((a,b)=>a.price-b.price).map(i=>`
+        <div class="shop-card-row" id="spr-${i.id}">
+          <span class="shop-card-name">${i.card_name}</span>
+          <span class="shop-card-price">¥${i.price.toLocaleString()}</span>
+          <span class="shop-card-date">${i.recorded_date}</span>
+          <button onclick="editShopPrice('${i.id}','${i.card_name}',${i.price})" style="background:none;border:none;font-size:14px;cursor:pointer;padding:2px 4px;flex-shrink:0;">✏️</button>
+        </div>`).join('')}
+    </div>`).join('');
+  document.getElementById('shopPage').innerHTML = html;
+}
+
+let editingShopPriceId = null;
+
+function editShopPrice(id, cardName, currentPrice) {
+  editingShopPriceId = id;
+  document.getElementById('editPriceTitle').textContent = `${cardName} の価格を編集`;
+  document.getElementById('editPriceInput').value = currentPrice;
+  document.getElementById('editPriceModal').classList.add('open');
+  setTimeout(() => document.getElementById('editPriceInput').focus(), 100);
+}
+
+async function saveEditPrice() {
+  const newPrice = parseInt(document.getElementById('editPriceInput').value);
+  if (!newPrice || newPrice <= 0) { showToast('正しい価格を入力してください'); return; }
+  try {
+    await sbPatch('shop_prices', editingShopPriceId, { price: newPrice });
+    const record = shopPrices.find(s=>s.id===editingShopPriceId);
+    if (record) record.price = newPrice;
+    closeModal('editPriceModal');
+    showToast('✅ 価格を更新しました');
+    renderShop();
+  } catch(e) { showToast('⚠️ 更新失敗'); }
+}
+
+// ===== 管理ページ（在庫アラート） =====
+function renderMercari() {
+  const activeSales = sales.filter(s=>s.status==='active');
+
+  // 必要枚数を集計
+  const neededTotal = {};
+  activeSales.forEach(s => {
+    deckCards.filter(r=>r.deck_id===s.deck_id).forEach(r => {
+      if (!neededTotal[r.card_id]) neededTotal[r.card_id] = 0;
+      neededTotal[r.card_id] += (r.quantity||1);
+    });
+  });
+
+  // 不足カード計算（ユーザーB家のみで判定）
+  const shortages = [];
+  Object.entries(neededTotal).forEach(([cardId, total]) => {
+    const card = cards.find(c=>c.id===cardId);
+    if (!card) return;
+    const haveHome = card.stock_home||0;
+    const haveParents = card.stock_parents||0;
+    const diff = haveHome - total;
+    shortages.push({ card, needed: total, have: haveHome, haveParents, diff });
+  });
+  shortages.sort((a,b)=>a.diff-b.diff);
+  const ngList = shortages.filter(s=>s.diff<0);
+  const totalShortage = Math.abs(ngList.reduce((s,r)=>s+r.diff,0));
+
+  // 在庫0（ユーザーB家・不足除く）
+  const zeroStock = cards.filter(c => {
+    return (c.stock_home||0) === 0 && !ngList.some(s=>s.card.id===c.id);
+  });
+
+  // 残りわずか（ユーザーB家1〜5枚・不足除く・在庫0除く）
+  const lowStock = cards.filter(c => {
+    const home = c.stock_home||0;
+    return home >= 1 && home <= 5 && !ngList.some(s=>s.card.id===c.id);
+  }).sort((a,b)=>(a.stock_home||0)-(b.stock_home||0));
+
+  let html = `<div style="padding:10px 12px;display:flex;flex-direction:column;gap:12px;">`;
+
+  // ヘッダー
+  html += `
+  <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:16px;padding:16px;color:white;">
+    <div style="font-size:11px;opacity:0.6;font-weight:700;letter-spacing:1px;margin-bottom:8px;">在庫アラート</div>
+    <div style="display:flex;gap:0;">
+      <div style="flex:1;text-align:center;border-right:1px solid rgba(255,255,255,0.15);padding:8px 0;">
+        <div style="font-size:28px;font-weight:900;font-family:'DM Mono',monospace;color:#f87171;">${ngList.length}</div>
+        <div style="font-size:10px;opacity:0.6;">🔴 不足中</div>
+      </div>
+      <div style="flex:1;text-align:center;border-right:1px solid rgba(255,255,255,0.15);padding:8px 0;">
+        <div style="font-size:28px;font-weight:900;font-family:'DM Mono',monospace;color:#94a3b8;">${zeroStock.length}</div>
+        <div style="font-size:10px;opacity:0.6;">⚫ 在庫0</div>
+      </div>
+      <div style="flex:1;text-align:center;padding:8px 0;">
+        <div style="font-size:28px;font-weight:900;font-family:'DM Mono',monospace;color:#fbbf24;">${lowStock.length}</div>
+        <div style="font-size:10px;opacity:0.6;">🟡 残りわずか</div>
+      </div>
+    </div>
+  </div>`;
+
+  // 🔴 不足中
+  if (ngList.length === 0) {
+    html += `<div style="background:var(--green-light);border-radius:14px;padding:16px;text-align:center;"><div style="font-size:28px;margin-bottom:6px;">✅</div><div style="font-size:14px;font-weight:900;color:var(--green);">不足カードはありません！</div></div>`;
+  } else {
+    html += `
+    <div style="background:var(--surface);border-radius:14px;overflow:hidden;border:1.5px solid var(--red-light);">
+      <div style="background:var(--red);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="color:white;font-weight:900;font-size:14px;">🔴 不足中</div>
+        <div style="background:rgba(255,255,255,0.25);color:white;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;">${ngList.length}種 / ${totalShortage}枚</div>
+      </div>
+      ${ngList.map((s,i)=>`
+        <div style="display:flex;align-items:center;padding:12px 14px;border-bottom:${i<ngList.length-1?'1px solid var(--surface2)':'none'};gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.card.name}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px;font-family:'DM Mono',monospace;">必要${s.needed}枚 / 🏠ユーザーB家${s.have}枚
+              ${s.haveParents>0?`<span style="color:#d97706;"> · 🏡拠点B${s.haveParents}枚あり</span>`:''}
+            </div>
+          </div>
+          ${s.card.image_url?`<button onclick="openImageModal('${s.card.image_url}','${s.card.name.replace(/'/g,"\'").replace(/"/g,"&quot;")}')" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:6px 10px;font-size:16px;cursor:pointer;flex-shrink:0;">🃏</button>`:''}
+          <div style="background:var(--red);color:white;border-radius:10px;padding:6px 12px;font-size:13px;font-weight:900;font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0;">−${Math.abs(s.diff)}枚</div>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  // ⚫ 在庫0
+  if (zeroStock.length > 0) {
+    html += `
+    <div style="background:var(--surface);border-radius:14px;overflow:hidden;border:1.5px solid var(--surface2);">
+      <div style="background:#374151;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="color:white;font-weight:900;font-size:14px;">⚫ 在庫0</div>
+        <div style="background:rgba(255,255,255,0.25);color:white;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;">${zeroStock.length}種</div>
+      </div>
+      ${zeroStock.map((c,i)=>`
+        <div style="display:flex;align-items:center;padding:12px 14px;border-bottom:${i<zeroStock.length-1?'1px solid var(--surface2)':'none'};gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px;">🏠ユーザーB家 0枚${(c.stock_parents||0)>0?` · <span style="color:#d97706;">🏡拠点B${c.stock_parents}枚あり</span>`:' · 補充してください'}</div>
+          </div>
+          ${c.image_url?`<button onclick="openImageModal('${c.image_url}','${c.name.replace(/'/g,"\'").replace(/"/g,"&quot;")}')" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:6px 10px;font-size:16px;cursor:pointer;flex-shrink:0;">🃏</button>`:''}
+          <div style="background:var(--surface2);color:var(--text2);border-radius:10px;padding:6px 12px;font-size:13px;font-weight:900;font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0;">0枚</div>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  // 🟡 残りわずか
+  if (lowStock.length > 0) {
+    html += `
+    <div style="background:var(--surface);border-radius:14px;overflow:hidden;border:1.5px solid #fef3c7;">
+      <div style="background:#d97706;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="color:white;font-weight:900;font-size:14px;">🟡 残りわずか（5枚以下）</div>
+        <div style="background:rgba(255,255,255,0.25);color:white;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700;">${lowStock.length}種</div>
+      </div>
+      ${lowStock.map((c,i)=>{
+        const have = c.stock_home||0;
+        return `
+        <div style="display:flex;align-items:center;padding:12px 14px;border-bottom:${i<lowStock.length-1?'1px solid var(--surface2)':'none'};gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px;">🏠ユーザーB家 ${have}枚${(c.stock_parents||0)>0?` · 🏡拠点B${c.stock_parents}枚`:''}</div>
+          </div>
+          ${c.image_url?`<button onclick="openImageModal('${c.image_url}','${c.name.replace(/'/g,"\'").replace(/"/g,"&quot;")}')" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:6px 10px;font-size:16px;cursor:pointer;flex-shrink:0;">🃏</button>`:''}
+          <div style="background:#fef3c7;color:#d97706;border-radius:10px;padding:6px 12px;font-size:13px;font-weight:900;font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0;">残り${have}枚</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  html += `</div>`;
+  document.getElementById('mercariPage').innerHTML = html;
+}
+
+// ===== 掲示板 =====
+let posts = [];
+let selectedBoardAuthor = '';
+let boardImageBase64 = null;
+
+function selectBoardAuthor(name, el) {
+  selectedBoardAuthor = name;
+  document.querySelectorAll('[data-author]').forEach(b => {
+    b.style.background = 'var(--surface2)';
+    b.style.color = 'var(--text2)';
+    b.style.borderColor = 'var(--border)';
+  });
+  el.style.background = 'var(--accent)';
+  el.style.color = 'white';
+  el.style.borderColor = 'var(--accent)';
+}
+
+function previewBoardImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('boardImageName').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    boardImageBase64 = e.target.result;
+    document.getElementById('boardPreviewImg').src = boardImageBase64;
+    document.getElementById('boardImagePreview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitPost() {
+  if (!selectedBoardAuthor) { showToast('投稿者を選んでください'); return; }
+  const content = document.getElementById('boardContent').value.trim();
+  if (!content) { showToast('内容を入力してください'); return; }
+
+  let imageUrl = null;
+  if (boardImageBase64) {
+    try {
+      const blob = await (await fetch(boardImageBase64)).blob();
+      const ext = blob.type.split('/')[1] || 'jpg';
+      const path = `posts/${Date.now()}.${ext}`;
+      const res = await fetch(`${SB_URL}/storage/v1/object/card-images/${path}`, {
+        method: 'POST',
+        headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': blob.type },
+        body: blob
+      });
+      if (res.ok) imageUrl = `${SB_URL}/storage/v1/object/public/card-images/${path}`;
+    } catch(e) {}
+  }
+
+  try {
+    const result = await sbPost('posts', { author: selectedBoardAuthor, content, image_url: imageUrl });
+    if (result && result[0]) posts.unshift(result[0]);
+    document.getElementById('boardContent').value = '';
+    document.getElementById('boardImageName').textContent = '';
+    document.getElementById('boardImagePreview').style.display = 'none';
+    document.getElementById('boardImageInput').value = '';
+    boardImageBase64 = null;
+    showToast('📢 投稿しました！');
+    renderBoard();
+  } catch(e) { showToast('⚠️ 投稿失敗'); }
+}
+
+async function deletePost(id) {
+  if (!confirm('この投稿を削除しますか？')) return;
+  try {
+    await sbDelete('posts', id);
+    posts = posts.filter(p=>p.id!==id);
+    renderBoard();
+    showToast('削除しました');
+  } catch(e) { showToast('⚠️ 削除失敗'); }
+}
+
+function renderBoard() {
+  // 投稿者ボタンを動的生成
+  const btnContainer = document.getElementById('boardAuthorBtns');
+  if (btnContainer && !btnContainer.children.length) {
+    ['ユーザーA','ユーザーB','ユーザーC','ユーザーD'].forEach(name => {
+      const btn = document.createElement('button');
+      btn.textContent = name;
+      btn.dataset.author = name;
+      btn.style.cssText = 'border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--surface2);color:var(--text2);';
+      btn.onclick = () => selectBoardAuthor(name, btn);
+      btnContainer.appendChild(btn);
+    });
+  }
+
+  const el = document.getElementById('boardPosts');
+  if (!el) return;
+  if (!posts.length) {
+    el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text2);">
+      <div style="font-size:40px;margin-bottom:8px;">📢</div>
+      <div style="font-size:14px;font-weight:700;">まだ投稿がありません</div>
+      <div style="font-size:12px;margin-top:4px;">最初の投稿をしてみよう！</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = posts.map(p => {
+    const date = new Date(p.created_at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const authorColors = { 'ユーザーA':'#2563eb', 'ユーザーB':'#db2777', 'ユーザーC':'#16a34a', 'ユーザーD':'#d97706' };
+    const color = authorColors[p.author] || 'var(--accent)';
+    const likes = Array.isArray(p.likes) ? p.likes : [];
+    const likedByMe = selectedBoardAuthor && likes.includes(selectedBoardAuthor);
+    const isMyPost = selectedBoardAuthor && p.author === selectedBoardAuthor;
+    return `
+    <div style="background:var(--surface);border-radius:16px;padding:14px;border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="background:${color};color:white;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:900;">${p.author}</div>
+          <div style="font-size:11px;color:var(--text2);">${date}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${isMyPost?`<button onclick="openEditPost('${p.id}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:var(--text2);">✏️</button>`:`<button onclick="showEditPicker('${p.id}','${p.author}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:var(--text2);">✏️</button>`}
+          ${isAdmin?`<button onclick="deletePost('${p.id}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:var(--text2);">🗑</button>`:''}
+        </div>
+      </div>
+      <div style="font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-all;">${p.content}</div>
+      ${p.image_url?`<img src="${p.image_url}" style="width:100%;border-radius:10px;margin-top:10px;object-fit:cover;max-height:250px;" onclick="openImageModal('${p.image_url}','')">`:'' }
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--surface2);">
+        <button onclick="toggleLike('${p.id}')"
+          style="display:flex;align-items:center;gap:5px;background:${likedByMe?'#fef2f2':'var(--surface2)'};border:1.5px solid ${likedByMe?'#fca5a5':'var(--border)'};border-radius:20px;padding:5px 12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;color:${likedByMe?'#dc2626':'var(--text2)'};">
+          ${likedByMe?'❤️':'🤍'} ${likes.length > 0 ? likes.length : ''}
+        </button>
+        ${likes.length > 0 ? `<span style="font-size:11px;color:var(--text2);">${likes.join('・')}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleLike(postId) {
+  const post = posts.find(p=>p.id===postId);
+  if (!post) return;
+  const likes = Array.isArray(post.likes) ? [...post.likes] : [];
+
+  // 既にいいねしてる人がいればその人の取り消し、いなければ誰としていいねするか選ぶ
+  // ミニポップアップを表示
+  showLikePicker(postId, likes);
+}
+
+function showLikePicker(postId, currentLikes) {
+  // 既存のピッカーを削除
+  const existing = document.getElementById('likePicker');
+  if (existing) existing.remove();
+
+  const picker = document.createElement('div');
+  picker.id = 'likePicker';
+  picker.style.cssText = 'position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);';
+  picker.innerHTML = `
+    <div style="background:var(--surface);border-radius:20px;padding:20px;margin:20px;width:100%;max-width:320px;box-shadow:0 8px 30px rgba(0,0,0,0.2);">
+      <div style="font-size:15px;font-weight:900;margin-bottom:16px;text-align:center;">誰としていいね？</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:16px;">
+        ${['ユーザーA','ユーザーB','ユーザーC','ユーザーD'].map(name => {
+          const alreadyLiked = currentLikes.includes(name);
+          return `<button onclick="doLike('${postId}','${name}')"
+            style="border:1.5px solid ${alreadyLiked?'#fca5a5':'var(--border)'};border-radius:20px;padding:8px 16px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;background:${alreadyLiked?'#fef2f2':'var(--surface2)'};color:${alreadyLiked?'#dc2626':'var(--text)'};">
+            ${alreadyLiked?'❤️':'🤍'} ${name}
+          </button>`;
+        }).join('')}
+      </div>
+      <button onclick="document.getElementById('likePicker').remove()"
+        style="width:100%;background:var(--surface2);border:none;border-radius:12px;padding:10px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;color:var(--text2);">
+        キャンセル
+      </button>
+    </div>`;
+  picker.onclick = e => { if (e.target === picker) picker.remove(); };
+  document.body.appendChild(picker);
+}
+
+async function doLike(postId, name) {
+  const post = posts.find(p=>p.id===postId);
+  if (!post) return;
+  const likes = Array.isArray(post.likes) ? [...post.likes] : [];
+  const idx = likes.indexOf(name);
+  if (idx >= 0) likes.splice(idx, 1);
+  else likes.push(name);
+  try {
+    await sbPatch('posts', postId, { likes });
+    post.likes = likes;
+    document.getElementById('likePicker')?.remove();
+    renderBoard();
+  } catch(e) { showToast('⚠️ 更新失敗'); }
+}
+
+function showEditPicker(postId, author) {
+  // 投稿者本人かどうか確認するピッカー
+  const picker = document.createElement('div');
+  picker.id = 'editPicker';
+  picker.style.cssText = 'position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);';
+  picker.innerHTML = `
+    <div style="background:var(--surface);border-radius:20px;padding:20px;margin:20px;width:100%;max-width:320px;">
+      <div style="font-size:15px;font-weight:900;margin-bottom:6px;text-align:center;">✏️ 投稿を編集</div>
+      <div style="font-size:13px;color:var(--text2);text-align:center;margin-bottom:16px;">${author} さんの投稿ですか？</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('editPicker').remove();openEditPost('${postId}')"
+          style="flex:1;background:var(--accent);color:white;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">
+          はい、編集する
+        </button>
+        <button onclick="document.getElementById('editPicker').remove()"
+          style="flex:1;background:var(--surface2);border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">
+          キャンセル
+        </button>
+      </div>
+    </div>`;
+  picker.onclick = e => { if (e.target === picker) picker.remove(); };
+  document.body.appendChild(picker);
+}
+
+let editingPostId = null;
+let editPostNewImageBase64 = null;
+let editPostRemoveImage = false;
+
+function openEditPost(postId) {
+  const post = posts.find(p=>p.id===postId);
+  if (!post) return;
+  editingPostId = postId;
+  editPostNewImageBase64 = null;
+  editPostRemoveImage = false;
+
+  document.getElementById('editPostContent').value = post.content;
+  document.getElementById('editPostImageInput').value = '';
+
+  // 現在の画像
+  const currentImgDiv = document.getElementById('editPostCurrentImg');
+  const previewImg = document.getElementById('editPostPreviewImg');
+  if (post.image_url) {
+    previewImg.src = post.image_url;
+    currentImgDiv.style.display = 'block';
+  } else {
+    currentImgDiv.style.display = 'none';
+  }
+
+  document.getElementById('editPostModal').classList.add('open');
+}
+
+function previewEditPostImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    editPostNewImageBase64 = e.target.result;
+    editPostRemoveImage = false;
+    const previewImg = document.getElementById('editPostPreviewImg');
+    previewImg.src = editPostNewImageBase64;
+    document.getElementById('editPostCurrentImg').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeEditPostImg() {
+  editPostRemoveImage = true;
+  editPostNewImageBase64 = null;
+  document.getElementById('editPostCurrentImg').style.display = 'none';
+  document.getElementById('editPostImageInput').value = '';
+}
+
+async function saveEditPostModal() {
+  const newContent = document.getElementById('editPostContent').value.trim();
+  if (!newContent) { showToast('内容を入力してください'); return; }
+
+  let imageUrl = undefined;
+
+  if (editPostRemoveImage) {
+    imageUrl = null;
+  } else if (editPostNewImageBase64) {
+    try {
+      const blob = await (await fetch(editPostNewImageBase64)).blob();
+      const ext = blob.type.split('/')[1] || 'jpg';
+      const path = `posts/${Date.now()}.${ext}`;
+      const res = await fetch(`${SB_URL}/storage/v1/object/card-images/${path}`, {
+        method: 'POST',
+        headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': blob.type },
+        body: blob
+      });
+      if (res.ok) imageUrl = `${SB_URL}/storage/v1/object/public/card-images/${path}`;
+    } catch(e) {}
+  }
+
+  try {
+    const updateData = { content: newContent };
+    if (imageUrl !== undefined) updateData.image_url = imageUrl;
+    await sbPatch('posts', editingPostId, updateData);
+    const post = posts.find(p=>p.id===editingPostId);
+    if (post) {
+      post.content = newContent;
+      if (imageUrl !== undefined) post.image_url = imageUrl;
+    }
+    closeModal('editPostModal');
+    showToast('✅ 編集しました');
+    renderBoard();
+  } catch(e) { showToast('⚠️ 編集失敗'); }
+}
+
+function renderBoard() {
+  // 投稿者ボタンを動的生成
+  const btnContainer = document.getElementById('boardAuthorBtns');
+  if (btnContainer && !btnContainer.children.length) {
+    ['ユーザーA','ユーザーB','ユーザーC','ユーザーD'].forEach(name => {
+      const btn = document.createElement('button');
+      btn.textContent = name;
+      btn.dataset.author = name;
+      btn.style.cssText = 'border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--surface2);color:var(--text2);';
+      btn.onclick = () => selectBoardAuthor(name, btn);
+      btnContainer.appendChild(btn);
+    });
+  }
+
+  const el = document.getElementById('boardPosts');
+  if (!el) return;
+  if (!posts.length) {
+    el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text2);">
+      <div style="font-size:40px;margin-bottom:8px;">📢</div>
+      <div style="font-size:14px;font-weight:700;">まだ投稿がありません</div>
+      <div style="font-size:12px;margin-top:4px;">最初の投稿をしてみよう！</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = posts.map(p => {
+    const date = new Date(p.created_at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const authorColors = { 'ユーザーA':'#2563eb', 'ユーザーB':'#db2777', 'ユーザーC':'#16a34a', 'ユーザーD':'#d97706' };
+    const color = authorColors[p.author] || 'var(--accent)';
+    const likes = Array.isArray(p.likes) ? p.likes : [];
+    const likedByMe = selectedBoardAuthor && likes.includes(selectedBoardAuthor);
+    const isMyPost = selectedBoardAuthor && p.author === selectedBoardAuthor;
+    return `
+    <div style="background:var(--surface);border-radius:16px;padding:14px;border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="background:${color};color:white;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:900;">${p.author}</div>
+          <div style="font-size:11px;color:var(--text2);">${date}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${isMyPost?`<button onclick="openEditPost('${p.id}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:var(--text2);">✏️</button>`:`<button onclick="showEditPicker('${p.id}','${p.author}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:var(--text2);">✏️</button>`}
+          ${isAdmin?`<button onclick="deletePost('${p.id}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:var(--text2);">🗑</button>`:''}
+        </div>
+      </div>
+      <div style="font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-all;">${p.content}</div>
+      ${p.image_url?`<img src="${p.image_url}" style="width:100%;border-radius:10px;margin-top:10px;object-fit:cover;max-height:250px;" onclick="openImageModal('${p.image_url}','')">`:'' }
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--surface2);">
+        <button onclick="toggleLike('${p.id}')"
+          style="display:flex;align-items:center;gap:5px;background:${likedByMe?'#fef2f2':'var(--surface2)'};border:1.5px solid ${likedByMe?'#fca5a5':'var(--border)'};border-radius:20px;padding:5px 12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;color:${likedByMe?'#dc2626':'var(--text2)'};">
+          ${likedByMe?'❤️':'🤍'} ${likes.length > 0 ? likes.length : ''}
+        </button>
+        ${likes.length > 0 ? `<span style="font-size:11px;color:var(--text2);">${likes.join('・')}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleLike(postId) {
+  const post = posts.find(p=>p.id===postId);
+  if (!post) return;
+  const likes = Array.isArray(post.likes) ? [...post.likes] : [];
+
+  // 既にいいねしてる人がいればその人の取り消し、いなければ誰としていいねするか選ぶ
+  // ミニポップアップを表示
+  showLikePicker(postId, likes);
+}
+
+function showLikePicker(postId, currentLikes) {
+  // 既存のピッカーを削除
+  const existing = document.getElementById('likePicker');
+  if (existing) existing.remove();
+
+  const picker = document.createElement('div');
+  picker.id = 'likePicker';
+  picker.style.cssText = 'position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);';
+  picker.innerHTML = `
+    <div style="background:var(--surface);border-radius:20px;padding:20px;margin:20px;width:100%;max-width:320px;box-shadow:0 8px 30px rgba(0,0,0,0.2);">
+      <div style="font-size:15px;font-weight:900;margin-bottom:16px;text-align:center;">誰としていいね？</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:16px;">
+        ${['ユーザーA','ユーザーB','ユーザーC','ユーザーD'].map(name => {
+          const alreadyLiked = currentLikes.includes(name);
+          return `<button onclick="doLike('${postId}','${name}')"
+            style="border:1.5px solid ${alreadyLiked?'#fca5a5':'var(--border)'};border-radius:20px;padding:8px 16px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;background:${alreadyLiked?'#fef2f2':'var(--surface2)'};color:${alreadyLiked?'#dc2626':'var(--text)'};">
+            ${alreadyLiked?'❤️':'🤍'} ${name}
+          </button>`;
+        }).join('')}
+      </div>
+      <button onclick="document.getElementById('likePicker').remove()"
+        style="width:100%;background:var(--surface2);border:none;border-radius:12px;padding:10px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;color:var(--text2);">
+        キャンセル
+      </button>
+    </div>`;
+  picker.onclick = e => { if (e.target === picker) picker.remove(); };
+  document.body.appendChild(picker);
+}
+
+async function doLike(postId, name) {
+  const post = posts.find(p=>p.id===postId);
+  if (!post) return;
+  const likes = Array.isArray(post.likes) ? [...post.likes] : [];
+  const idx = likes.indexOf(name);
+  if (idx >= 0) likes.splice(idx, 1);
+  else likes.push(name);
+  try {
+    await sbPatch('posts', postId, { likes });
+    post.likes = likes;
+    document.getElementById('likePicker')?.remove();
+    renderBoard();
+  } catch(e) { showToast('⚠️ 更新失敗'); }
+}
+
+function showEditPicker(postId, author) {
+  // 投稿者本人かどうか確認するピッカー
+  const picker = document.createElement('div');
+  picker.id = 'editPicker';
+  picker.style.cssText = 'position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);';
+  picker.innerHTML = `
+    <div style="background:var(--surface);border-radius:20px;padding:20px;margin:20px;width:100%;max-width:320px;">
+      <div style="font-size:15px;font-weight:900;margin-bottom:6px;text-align:center;">✏️ 投稿を編集</div>
+      <div style="font-size:13px;color:var(--text2);text-align:center;margin-bottom:16px;">${author} さんの投稿ですか？</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('editPicker').remove();openEditPost('${postId}')"
+          style="flex:1;background:var(--accent);color:white;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">
+          はい、編集する
+        </button>
+        <button onclick="document.getElementById('editPicker').remove()"
+          style="flex:1;background:var(--surface2);border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;">
+          キャンセル
+        </button>
+      </div>
+    </div>`;
+  picker.onclick = e => { if (e.target === picker) picker.remove(); };
+  document.body.appendChild(picker);
+}
+
+
+function openEditPost(postId) {
+  const post = posts.find(p=>p.id===postId);
+  if (!post) return;
+  editingPostId = postId;
+  editPostNewImageBase64 = null;
+  editPostRemoveImage = false;
+
+  document.getElementById('editPostContent').value = post.content;
+  document.getElementById('editPostImageInput').value = '';
+
+  // 現在の画像
+  const currentImgDiv = document.getElementById('editPostCurrentImg');
+  const previewImg = document.getElementById('editPostPreviewImg');
+  if (post.image_url) {
+    previewImg.src = post.image_url;
+    currentImgDiv.style.display = 'block';
+  } else {
+    currentImgDiv.style.display = 'none';
+  }
+
+  document.getElementById('editPostModal').classList.add('open');
+}
+
+function previewEditPostImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    editPostNewImageBase64 = e.target.result;
+    editPostRemoveImage = false;
+    const previewImg = document.getElementById('editPostPreviewImg');
+    previewImg.src = editPostNewImageBase64;
+    document.getElementById('editPostCurrentImg').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeEditPostImg() {
+  editPostRemoveImage = true;
+  editPostNewImageBase64 = null;
+  document.getElementById('editPostCurrentImg').style.display = 'none';
+  document.getElementById('editPostImageInput').value = '';
+}
+
+async function saveEditPostModal() {
+  const newContent = document.getElementById('editPostContent').value.trim();
+  if (!newContent) { showToast('内容を入力してください'); return; }
+
+  let imageUrl = undefined;
+
+  if (editPostRemoveImage) {
+    imageUrl = null;
+  } else if (editPostNewImageBase64) {
+    try {
+      const blob = await (await fetch(editPostNewImageBase64)).blob();
+      const ext = blob.type.split('/')[1] || 'jpg';
+      const path = `posts/${Date.now()}.${ext}`;
+      imageUrl = boardImageBase64; // ポートフォリオ用：base64をそのまま使用
+    } catch(e) {}
+  }
+
+  try {
+    const updateData = { content: newContent };
+    if (imageUrl !== undefined) updateData.image_url = imageUrl;
+    await sbPatch('posts', editingPostId, updateData);
+    const post = posts.find(p=>p.id===editingPostId);
+    if (post) {
+      post.content = newContent;
+      if (imageUrl !== undefined) post.image_url = imageUrl;
+    }
+    closeModal('editPostModal');
+    showToast('✅ 編集しました');
+    renderBoard();
+  } catch(e) { showToast('⚠️ 編集失敗'); }
+}
+
+// ===== 取引履歴 =====
+function renderHistory() {
+  const completed = sales.filter(s=>s.status==='completed');
+  if (!completed.length) {
+    document.getElementById('historyPage').innerHTML = `<div class="empty"><div class="e-icon">📋</div><p>取引履歴はまだありません</p></div>`;
+    return;
+  }
+  document.getElementById('historyPage').innerHTML = completed.map(s=>`
+    <div class="history-card">
+      <div class="history-card-header">
+        <h3>${s.deck_name}</h3>
+        <span class="history-date">${new Date(s.created_at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})}</span>
+      </div>
+      <span class="history-status completed">✅ 取引完了</span>
+      ${s.sold_price?`<div class="history-price">¥${s.sold_price.toLocaleString()}</div>`:''}
+    </div>`).join('');
+}
+
+// ===== UI操作 =====
+function toggleAdmin() {
+  isAdmin = !isAdmin;
+  document.getElementById('adminBtn').classList.toggle('active',isAdmin);
+  document.getElementById('adminBtn').textContent = isAdmin?'✓ 管理者':'管理者モード';
+  document.getElementById('addForm').classList.toggle('open',isAdmin);
+  renderInventory();
+  renderDecks();
+}
+
+// フィルターシート
+function openFilterSheet() {
+  document.getElementById('filterSheet').classList.add('open');
+  document.getElementById('filterSheetOverlay').classList.add('open');
+}
+function closeFilterSheet() {
+  document.getElementById('filterSheet').classList.remove('open');
+  document.getElementById('filterSheetOverlay').classList.remove('open');
+}
+function sheetSetCat(val, el) {
+  currentCat = val;
+  document.querySelectorAll('[data-cat]').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  updateFilterBtnState();
+  renderInventory();
+}
+function sheetSetRarity(val, el) {
+  currentRarity = val;
+  document.querySelectorAll('[data-rarity]').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  updateFilterBtnState();
+  renderInventory();
+}
+function sheetSetFilter(val, el) {
+  currentFilter = val;
+  document.querySelectorAll('[data-filter]').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  updateFilterBtnState();
+  renderInventory();
+}
+function sheetSetSort(val, el) {
+  currentSort = val;
+  document.querySelectorAll('[data-sort]').forEach(e=>e.classList.remove('active','active-sort'));
+  el.classList.add('active-sort');
+  updateFilterBtnState();
+  renderInventory();
+}
+function resetFilters() {
+  currentCat=''; currentFilter='all'; currentSort=''; currentRarity='';
+  document.querySelectorAll('[data-cat]').forEach(e=>e.classList.remove('active'));
+  document.querySelector('[data-cat=""]')?.classList.add('active');
+  document.querySelectorAll('[data-rarity]').forEach(e=>e.classList.remove('active'));
+  document.querySelector('[data-rarity=""]')?.classList.add('active');
+  document.querySelectorAll('[data-filter]').forEach(e=>e.classList.remove('active'));
+  document.querySelector('[data-filter="all"]')?.classList.add('active');
+  document.querySelectorAll('[data-sort]').forEach(e=>e.classList.remove('active','active-sort'));
+  document.querySelector('[data-sort=""]')?.classList.add('active-sort');
+  updateFilterBtnState();
+  renderInventory();
+}
+function updateFilterBtnState() {
+  const isActive = currentCat!=='' || currentFilter!=='all' || currentSort!=='' || currentRarity!=='';
+  const btn = document.getElementById('filterBtn');
+  if (btn) {
+    btn.classList.toggle('active', isActive);
+    btn.textContent = isActive ? '▼ 絞込中' : '▼ 絞込';
+  }
+}
+function setFilter(val,el) { sheetSetFilter(val,el); }
+function setCat(val,el) { sheetSetCat(val,el); }
+function setSort(val,el) { sheetSetSort(val,el); }
+function toggleDetail(id) {
+  document.getElementById(`detail-${id}`).classList.toggle('open');
+}
+function switchPage(name, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(`page-${name}`).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  if (el && el.classList && el.classList.contains('nav-btn')) el.classList.add('active');
+  const navEl = document.getElementById(`nav-${name}`);
+  if (navEl) navEl.classList.add('active');
+  // 在庫一覧のときだけ検索・フィルターを表示
+  const isInventory = name === 'inventory';
+  const searchRow = document.getElementById('searchRow');
+  if (searchRow) searchRow.style.display = isInventory ? 'flex' : 'none';
+}
+function openDrawer() {
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// 検索結果外クリックで閉じる
+document.addEventListener('click', e => {
+  document.querySelectorAll('.deck-search-results.open').forEach(el => {
+    if (!el.parentElement.contains(e.target)) el.classList.remove('open');
+  });
+});
+
+init();
+</script>
+</body>
+</html>
